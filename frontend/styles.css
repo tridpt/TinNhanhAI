@@ -311,12 +311,24 @@ button {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  grid-template-columns: 1fr;
   gap: 18px;
 }
 
 .panel {
   min-width: 0;
+}
+
+.price-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.price-list-vn {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
 }
 
 .panel-head {
@@ -413,15 +425,6 @@ button {
   color: var(--muted);
   line-height: 1.5;
   font-size: 0.92rem;
-}
-
-.panel-prices {
-  position: relative;
-}
-
-.price-list {
-  display: grid;
-  gap: 12px;
 }
 
 .price-card {
@@ -569,12 +572,13 @@ button {
 }
 
 @media (max-width: 980px) {
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
-
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .price-list,
+  .price-list-vn {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   }
 }
 
@@ -622,7 +626,7 @@ button {
 .vn-prices-section {
   margin-top: 18px;
   padding-top: 16px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  border-top: 1px dashed var(--line);
 }
 
 .vn-prices-title {
@@ -630,13 +634,19 @@ button {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--muted);
   margin: 0 0 12px;
 }
 
-.price-card-vn .price-symbol {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.55);
+.vn-gold-compare {
+  margin-bottom: 14px;
+}
+
+.compare-chart {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  padding: 14px 16px;
 }
 
 
@@ -928,17 +938,6 @@ button {
 }
 
 /* VN gold compare chart */
-.vn-gold-compare {
-  margin-bottom: 14px;
-}
-
-.compare-chart {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  padding: 14px 16px;
-}
-
 .compare-chart-head h4 {
   margin: 0 0 10px;
   font-size: 0.92rem;
@@ -1317,4 +1316,27 @@ html[data-theme="dark"] #bookmarks-toggle.active {
 
 html[data-theme="dark"] .weather-icon {
   background: rgba(45, 212, 191, 0.12);
+}
+
+
+.prices-subtitle {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+.panel-prices {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 18px 22px 20px;
+  box-shadow: var(--shadow);
+}
+
+.price-card-vn .price-symbol {
+  font-size: 11px;
+  color: var(--muted);
 }

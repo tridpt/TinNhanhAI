@@ -94,49 +94,50 @@
     </section>
 
     <section class="band content-band">
-      <div class="content-grid">
-        <section class="panel panel-news">
-          <div class="panel-head">
-            <div>
-              <h2>Tin nổi bật</h2>
-              <p>Chọn chủ đề để đổi luồng tin nhanh.</p>
-            </div>
-            <div class="topic-tabs" id="topic-tabs"></div>
+      <section class="panel panel-news">
+        <div class="panel-head">
+          <div>
+            <h2>Tin nổi bật</h2>
+            <p>Chọn chủ đề để đổi luồng tin nhanh.</p>
           </div>
-          <div class="news-toolbar">
-            <label class="news-filter">
-              <i data-lucide="search"></i>
-              <input id="news-filter-input" type="search" placeholder="Lọc tin theo từ khóa..." autocomplete="off">
-            </label>
-            <button id="bookmarks-toggle" class="chip" type="button" title="Hiện chỉ tin đã lưu" aria-pressed="false">
-              <i data-lucide="bookmark"></i>
-              <span>Tin đã lưu</span>
-              <span id="bookmarks-count" class="bookmarks-count">0</span>
-            </button>
-            <span id="news-filter-stats" class="news-filter-stats"></span>
-          </div>
-          <div id="news-list" class="news-list"></div>
-        </section>
+          <div class="topic-tabs" id="topic-tabs"></div>
+        </div>
+        <div class="news-toolbar">
+          <label class="news-filter">
+            <i data-lucide="search"></i>
+            <input id="news-filter-input" type="search" placeholder="Lọc tin theo từ khóa..." autocomplete="off">
+          </label>
+          <button id="bookmarks-toggle" class="chip" type="button" title="Hiện chỉ tin đã lưu" aria-pressed="false">
+            <i data-lucide="bookmark"></i>
+            <span>Tin đã lưu</span>
+            <span id="bookmarks-count" class="bookmarks-count">0</span>
+          </button>
+          <span id="news-filter-stats" class="news-filter-stats"></span>
+        </div>
+        <div id="news-list" class="news-list"></div>
+      </section>
+    </section>
 
-        <aside class="panel panel-prices">
-          <div class="panel-head">
-            <div>
-              <h2>Giá thị trường</h2>
-              <p>Vàng, dầu, xăng theo thị trường quốc tế và Việt Nam.</p>
-            </div>
-            <button id="export-prices-btn" class="chip" type="button" title="Xuất CSV bảng giá hiện tại">
-              <i data-lucide="download"></i>
-              <span>Xuất CSV</span>
-            </button>
+    <section class="band prices-band">
+      <section class="panel panel-prices">
+        <div class="panel-head">
+          <div>
+            <h2>Giá thị trường</h2>
+            <p>Vàng, dầu, xăng quốc tế và Việt Nam.</p>
           </div>
-          <div id="price-list" class="price-list"></div>
-          <div class="vn-prices-section">
-            <h3 class="vn-prices-title">Giá tại Việt Nam</h3>
-            <div id="vn-gold-compare" class="vn-gold-compare"></div>
-            <div id="vn-price-list" class="price-list price-list-vn"></div>
-          </div>
-        </aside>
-      </div>
+          <button id="export-prices-btn" class="chip" type="button" title="Xuất CSV bảng giá hiện tại">
+            <i data-lucide="download"></i>
+            <span>Xuất CSV</span>
+          </button>
+        </div>
+        <h3 class="prices-subtitle">Quốc tế</h3>
+        <div id="price-list" class="price-list"></div>
+        <div class="vn-prices-section">
+          <h3 class="vn-prices-title">Việt Nam</h3>
+          <div id="vn-gold-compare" class="vn-gold-compare"></div>
+          <div id="vn-price-list" class="price-list price-list-vn"></div>
+        </div>
+      </section>
     </section>
 
     <section class="band markets-band">
