@@ -1,0 +1,29 @@
+__pycache__/
+*.pyc
+*.pyo
+
+# environment
+.env
+.env.*
+!.env.example
+
+# virtualenvs
+venv/
+.venv/
+env/
+
+# data & cache
+data/
+*.db
+*.sqlite
+
+# logs
+*.log
+server.out.log
+server.err.log
+
+# editor
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

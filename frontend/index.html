@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TinNhanh AI</title>
+  <meta name="description" content="Tin nóng mỗi ngày, bảng giá thị trường, và tra cứu nhanh bằng AI.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <i data-lucide="newspaper"></i>
+      </div>
+      <div class="brand-text">
+        <h1>TinNhanh AI</h1>
+        <p>Tin nóng, giá thị trường, hỏi nhanh</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span id="health-pill" class="status-pill">Đang kiểm tra</span>
+      <button id="refresh-btn" class="icon-btn" type="button" title="Làm mới dữ liệu">
+        <i data-lucide="refresh-cw"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="band intro-band">
+      <form id="query-form" class="query-box">
+        <label for="query-input" class="section-label">Hỏi AI</label>
+        <div class="query-row">
+          <textarea id="query-input" rows="2" placeholder="Ví dụ: Tóm tắt tin công nghệ hôm nay, giá vàng hiện tại, hoặc giá iPhone 15 Pro Max"></textarea>
+          <button type="submit" class="primary-btn">
+            <i data-lucide="sparkles"></i>
+            <span>Hỏi ngay</span>
+          </button>
+        </div>
+      </form>
+      <div class="chip-row" id="quick-chips">
+        <button class="chip" type="button" data-query="Tóm tắt tin công nghệ hôm nay">
+          <i data-lucide="cpu"></i><span>Công nghệ</span>
+        </button>
+        <button class="chip" type="button" data-query="Tóm tắt tin kinh tế hôm nay">
+          <i data-lucide="chart-column"></i><span>Kinh tế</span>
+        </button>
+        <button class="chip" type="button" data-query="Giá vàng hiện tại">
+          <i data-lucide="crown"></i><span>Giá vàng</span>
+        </button>
+        <button class="chip" type="button" data-query="Giá iPhone 15 Pro Max">
+          <i data-lucide="smartphone"></i><span>Giá điện thoại</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="band metrics-band">
+      <div class="metric-grid">
+        <article class="metric-card">
+          <span class="metric-label">Chủ đề</span>
+          <strong id="metric-topics">0</strong>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Bài viết</span>
+          <strong id="metric-articles">0</strong>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Nguồn</span>
+          <strong id="metric-sources">0</strong>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Cập nhật</span>
+          <strong id="metric-updated">--:--</strong>
+        </article>
+      </div>
+      <p id="brief-text" class="brief-text">Đang tải bản tin...</p>
+    </section>
+
+    <section class="band content-band">
+      <div class="content-grid">
+        <section class="panel panel-news">
+          <div class="panel-head">
+            <div>
+              <h2>Tin nổi bật</h2>
+              <p>Chọn chủ đề để đổi luồng tin nhanh.</p>
+            </div>
+            <div class="topic-tabs" id="topic-tabs"></div>
+          </div>
+          <div id="news-list" class="news-list"></div>
+        </section>
+
+        <aside class="panel panel-prices">
+          <div class="panel-head">
+            <div>
+              <h2>Giá thị trường</h2>
+              <p>Vàng, dầu, xăng theo thị trường quốc tế.</p>
+            </div>
+          </div>
+          <div id="price-list" class="price-list"></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="band answer-band">
+      <div class="panel-head answer-head">
+        <div>
+          <h2>Kết quả AI</h2>
+          <p>Trả lời theo tin, giá, hoặc tìm kiếm web.</p>
+        </div>
+        <span id="answer-meta" class="answer-meta">Sẵn sàng</span>
+      </div>
+      <div id="answer-box" class="answer-box">
+        <p class="muted">Nhập câu hỏi để xem câu trả lời và nguồn.</p>
+      </div>
+    </section>
+  </main>
+
+  <template id="news-item-template">
+    <article class="news-card">
+      <div class="news-card-head">
+        <span class="source-pill"></span>
+        <span class="time-pill"></span>
+      </div>
+      <a class="news-title" target="_blank" rel="noreferrer"></a>
+      <p class="news-summary"></p>
+    </article>
+  </template>
+
+  <template id="price-item-template">
+    <article class="price-card">
+      <div class="price-card-head">
+        <span class="price-icon"><i></i></span>
+        <div>
+          <h3 class="price-label"></h3>
+          <p class="price-symbol"></p>
+        </div>
+      </div>
+      <div class="price-main">
+        <strong class="price-value"></strong>
+        <span class="price-unit"></span>
+      </div>
+      <p class="price-change"></p>
+      <p class="price-updated"></p>
+    </article>
+  </template>
+
+  <template id="source-item-template">
+    <li class="source-item">
+      <a target="_blank" rel="noreferrer" class="source-link"></a>
+      <p class="source-snippet"></p>
+    </li>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>
+
