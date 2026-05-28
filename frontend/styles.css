@@ -1110,3 +1110,211 @@ html[data-theme="dark"] #bookmarks-toggle.active {
     display: none;
   }
 }
+
+
+/* Markets band (weather + stocks + crypto) */
+.markets-band {
+  margin-top: -8px;
+}
+
+.panel-markets {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 18px 22px 20px;
+  box-shadow: var(--shadow);
+}
+
+.markets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  margin-top: 12px;
+}
+
+.markets-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.markets-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.markets-title i {
+  width: 16px;
+  height: 16px;
+}
+
+.markets-cards {
+  display: grid;
+  gap: 10px;
+}
+
+.market-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: var(--surface-soft);
+  position: relative;
+}
+
+.market-trend-up { border-left: 3px solid var(--success); }
+.market-trend-down { border-left: 3px solid var(--danger); }
+.market-trend-flat { border-left: 3px solid var(--muted); }
+
+.market-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.market-icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--accent);
+  border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.market-icon i {
+  width: 16px;
+  height: 16px;
+}
+
+.market-label {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.market-symbol {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.market-price {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.market-change {
+  margin-top: 2px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.market-trend-up .market-change { color: var(--success); }
+.market-trend-down .market-change { color: var(--danger); }
+
+.market-unit {
+  margin-top: 1px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.market-spark {
+  margin-top: 8px;
+  min-height: 0;
+}
+
+/* Weather cards */
+.weather-list {
+  display: grid;
+  gap: 10px;
+}
+
+.weather-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: var(--surface-soft);
+}
+
+.weather-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.weather-icon {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.08);
+  color: var(--accent);
+  flex: 0 0 auto;
+}
+
+.weather-icon i {
+  width: 18px;
+  height: 18px;
+}
+
+.weather-city {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.weather-cond {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.weather-temp {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 4px 0 6px;
+}
+
+.weather-stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.weather-stats li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.weather-stats i {
+  width: 13px;
+  height: 13px;
+}
+
+html[data-theme="dark"] .weather-icon {
+  background: rgba(45, 212, 191, 0.12);
+}

@@ -14,7 +14,10 @@ import config
 
 from .ai import compact_json, generate_text
 from .cache import TTLCache
+from .crypto import get_crypto_payload
 from .prices import get_prices_payload
+from .stocks import get_stocks_payload
+from .weather import get_weather_payload
 
 UTC = UTC
 LOCAL_TZ = timezone(timedelta(hours=7))
@@ -225,6 +228,18 @@ Dữ liệu:
         },
         "topics": topics,
         "prices": get_prices_payload(force=force),
+        "crypto": _safe_payload(get_crypto_payload, force=force),
+        "stocks": _safe_payload(get_stocks_payload, force=force),
+        "weather": _safe_payload(get_weather_payload, force=force),
     }
     CACHE.set(cache_key, payload, config.DASHBOARD_REFRESH_SECONDS)
     return payload
+
+
+def _safe_payload(builder, *, force: bool):
+    """Run a payload builder but never let a single source break the dashboard."""
+
+    try:
+        return builder(force=force)
+    except Exception:
+        return {"error": "fetch_failed"}

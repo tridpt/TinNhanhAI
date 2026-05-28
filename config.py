@@ -70,22 +70,32 @@ NEWS_TOPIC_SOURCES = {
     "thoi_su": [
         {"name": "VnExpress", "url": "https://vnexpress.net/rss/thoi-su.rss"},
         {"name": "Thanh Niên", "url": "https://thanhnien.vn/rss/thoi-su.rss"},
+        {"name": "Tuổi Trẻ", "url": "https://tuoitre.vn/rss/thoi-su.rss"},
+        {"name": "Dân Trí", "url": "https://dantri.com.vn/rss/xa-hoi.rss"},
     ],
     "kinh_te": [
         {"name": "VnExpress", "url": "https://vnexpress.net/rss/kinh-doanh.rss"},
         {"name": "Thanh Niên", "url": "https://thanhnien.vn/rss/kinh-te.rss"},
+        {"name": "Tuổi Trẻ", "url": "https://tuoitre.vn/rss/kinh-doanh.rss"},
+        {"name": "Dân Trí", "url": "https://dantri.com.vn/rss/kinh-doanh.rss"},
     ],
     "cong_nghe": [
         {"name": "VnExpress", "url": "https://vnexpress.net/rss/khoa-hoc-cong-nghe.rss"},
         {"name": "Thanh Niên", "url": "https://thanhnien.vn/rss/cong-nghe.rss"},
+        {"name": "Tuổi Trẻ", "url": "https://tuoitre.vn/rss/nhip-song-so.rss"},
+        {"name": "Dân Trí", "url": "https://dantri.com.vn/rss/cong-nghe.rss"},
     ],
     "the_gioi": [
         {"name": "VnExpress", "url": "https://vnexpress.net/rss/the-gioi.rss"},
         {"name": "Thanh Niên", "url": "https://thanhnien.vn/rss/the-gioi.rss"},
+        {"name": "Tuổi Trẻ", "url": "https://tuoitre.vn/rss/the-gioi.rss"},
+        {"name": "BBC Tiếng Việt", "url": "https://feeds.bbci.co.uk/vietnamese/rss.xml"},
     ],
     "the_thao": [
         {"name": "VnExpress", "url": "https://vnexpress.net/rss/the-thao.rss"},
         {"name": "Thanh Niên", "url": "https://thanhnien.vn/rss/the-thao.rss"},
+        {"name": "Tuổi Trẻ", "url": "https://tuoitre.vn/rss/the-thao.rss"},
+        {"name": "Dân Trí", "url": "https://dantri.com.vn/rss/the-thao.rss"},
     ],
 }
 

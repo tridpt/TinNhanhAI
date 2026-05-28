@@ -63,6 +63,9 @@ const el = {
   priceTemplate: document.getElementById("price-item-template"),
   vnPriceTemplate: document.getElementById("vn-price-item-template"),
   sourceTemplate: document.getElementById("source-item-template"),
+  weatherList: document.getElementById("weather-list"),
+  stocksList: document.getElementById("stocks-list"),
+  cryptoList: document.getElementById("crypto-list"),
 };
 
 function setHealth(text, kind = "") {
@@ -309,6 +312,80 @@ function renderPrices(cards) {
   lucide.createIcons();
 }
 
+function renderWeather(cities) {
+  if (!el.weatherList) return;
+  if (!cities || !cities.length) {
+    el.weatherList.innerHTML = `<div class="empty-state">Chưa lấy được thời tiết.</div>`;
+    return;
+  }
+  el.weatherList.innerHTML = "";
+  cities.forEach((city) => {
+    const card = document.createElement("article");
+    card.className = "weather-card";
+    card.innerHTML = `
+      <div class="weather-head">
+        <span class="weather-icon"><i data-lucide="${city.icon || "cloud"}"></i></span>
+        <div>
+          <h4 class="weather-city">${city.city || ""}</h4>
+          <p class="weather-cond">${city.label || ""}</p>
+        </div>
+      </div>
+      <div class="weather-temp">${city.temperature_text || ""}</div>
+      <ul class="weather-stats">
+        <li><i data-lucide="thermometer"></i><span>Cảm giác ${city.feels_like_text || "—"}</span></li>
+        <li><i data-lucide="droplets"></i><span>Ẩm ${city.humidity_text || "—"}</span></li>
+        <li><i data-lucide="wind"></i><span>Gió ${city.wind_text || "—"}</span></li>
+      </ul>
+    `;
+    el.weatherList.appendChild(card);
+  });
+  lucide.createIcons();
+}
+
+function renderStocks(cards) {
+  renderMarketCards(el.stocksList, cards, { showSparkline: true });
+}
+
+function renderCrypto(cards) {
+  renderMarketCards(el.cryptoList, cards, { showSparkline: true });
+}
+
+function renderMarketCards(container, cards, options = {}) {
+  if (!container) return;
+  if (!cards || !cards.length) {
+    container.innerHTML = `<div class="empty-state">Chưa có dữ liệu.</div>`;
+    return;
+  }
+  container.innerHTML = "";
+  cards.forEach((card) => {
+    const change = Number(card.change_percent || 0);
+    const trend = change > 0 ? "up" : change < 0 ? "down" : "flat";
+    const node = document.createElement("article");
+    node.className = `market-card market-trend-${trend}`;
+    node.innerHTML = `
+      <div class="market-head">
+        <span class="market-icon"><i data-lucide="${card.icon || "circle"}"></i></span>
+        <div>
+          <h4 class="market-label">${card.label || ""}</h4>
+          <p class="market-symbol">${card.symbol || card.provider || ""}</p>
+        </div>
+      </div>
+      <div class="market-price">${card.price_text || "—"}</div>
+      <div class="market-change">${card.change_text || ""}</div>
+      ${card.unit ? `<div class="market-unit">${card.unit}</div>` : ""}
+      <div class="market-spark"></div>
+    `;
+    container.appendChild(node);
+    if (options.showSparkline && card.history && card.history.length >= 2) {
+      const sparkContainer = node.querySelector(".market-spark");
+      renderSparkline(sparkContainer, card.history, {
+        formatTick: (value) => Number(value).toLocaleString("vi-VN", { maximumFractionDigits: 2 }),
+      });
+    }
+  });
+  lucide.createIcons();
+}
+
 function renderAnswer(data) {
   el.answerMeta.textContent = `${data.intent || "general"} · ${formatTime(data.generated_at)}`;
   el.answerBox.innerHTML = "";
@@ -513,6 +590,9 @@ function renderDashboard(dashboard) {
   renderPrices(dashboard.prices?.cards || []);
   renderVnPrices(dashboard.prices?.vn_cards || []);
   renderGoldCompare(dashboard.prices?.vn_cards || []);
+  renderWeather(dashboard.weather?.cities || []);
+  renderStocks(dashboard.stocks?.cards || []);
+  renderCrypto(dashboard.crypto?.cards || []);
   setHealth(state.aiEnabled ? "AI sẵn sàng" : "AI tắt", state.aiEnabled ? "ok" : "warn");
   lucide.createIcons();
 }

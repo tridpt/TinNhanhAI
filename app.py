@@ -100,6 +100,30 @@ def prices():
     return jsonify(get_prices_payload(force=force))
 
 
+@app.get("/api/crypto")
+def crypto():
+    from services.crypto import get_crypto_payload
+
+    force = request.args.get("force", "0").lower() in {"1", "true", "yes"}
+    return jsonify(get_crypto_payload(force=force))
+
+
+@app.get("/api/stocks")
+def stocks():
+    from services.stocks import get_stocks_payload
+
+    force = request.args.get("force", "0").lower() in {"1", "true", "yes"}
+    return jsonify(get_stocks_payload(force=force))
+
+
+@app.get("/api/weather")
+def weather():
+    from services.weather import get_weather_payload
+
+    force = request.args.get("force", "0").lower() in {"1", "true", "yes"}
+    return jsonify(get_weather_payload(force=force))
+
+
 @app.get("/api/prices/history")
 def prices_history():
     from services.history import get_history
