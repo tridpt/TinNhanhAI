@@ -1002,3 +1002,111 @@ html[data-theme="dark"] #bookmarks-toggle.active {
   background: rgba(45, 212, 191, 0.12);
   border-color: rgba(45, 212, 191, 0.45);
 }
+
+
+/* Skeleton loaders */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+.skeleton-card {
+  pointer-events: none;
+}
+
+.skeleton-line {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--surface-soft) 0%,
+    var(--line) 50%,
+    var(--surface-soft) 100%
+  );
+  background-size: 400px 100%;
+  border-radius: 6px;
+  height: 12px;
+  margin: 8px 0;
+  animation: skeleton-shimmer 1.4s linear infinite;
+}
+
+.skeleton-line-pill {
+  display: inline-block;
+  width: 80px;
+  height: 18px;
+  border-radius: 999px;
+  margin: 0 8px 0 0;
+}
+
+.skeleton-line-title {
+  height: 18px;
+  width: 80%;
+}
+
+.skeleton-line-text {
+  height: 11px;
+}
+
+.skeleton-line-text.short {
+  width: 55%;
+}
+
+/* New items badge on refresh button */
+.icon-btn {
+  position: relative;
+}
+
+.new-items-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+  border: 2px solid var(--surface);
+  pointer-events: none;
+  animation: badge-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+
+.kbd-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: help;
+  user-select: none;
+}
+
+.kbd-hint kbd {
+  display: inline-block;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  min-width: 18px;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .kbd-hint {
+    display: none;
+  }
+}

@@ -8,7 +8,12 @@ const state = {
   aiEnabled: false,
   recentQueries: [],
   bookmarks: new Set(),
+  knownUrls: new Set(),
+  newItemCount: 0,
+  autoRefreshTimerId: null,
 };
+
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 const topicOrder = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao"];
 const topicMeta = {
@@ -528,29 +533,135 @@ async function loadHealth() {
   }
 }
 
-async function loadDashboard(force = false) {
-  setHealth("Đang tải dữ liệu", "warn");
-  el.refreshBtn.disabled = true;
+async function loadDashboard(force = false, options = {}) {
+  const { silent = false } = options;
+  if (!silent) {
+    setHealth("Đang tải dữ liệu", "warn");
+    el.refreshBtn.disabled = true;
+  }
+  if (!state.dashboard && !silent) {
+    renderSkeletons();
+  }
   try {
     const response = await fetch(`/api/dashboard${force ? "?force=1" : ""}`);
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.error) {
       const offline = data?.error === "offline";
       setHealth(offline ? "Offline" : "Không tải được dữ liệu", offline ? "warn" : "err");
-      el.briefText.textContent = offline
-        ? "Bạn đang offline. Hiển thị dữ liệu đã lưu trước đó (nếu có)."
-        : "Không tải được dữ liệu. Hãy thử làm mới lại.";
+      if (!state.dashboard) {
+        el.briefText.textContent = offline
+          ? "Bạn đang offline. Hiển thị dữ liệu đã lưu trước đó (nếu có)."
+          : "Không tải được dữ liệu. Hãy thử làm mới lại.";
+      }
       return;
     }
-    renderDashboard(data);
+    const newCount = countNewArticles(data);
+    if (silent && newCount > 0) {
+      // The user is mid-read; don't yank the list out from under them. Mark
+      // the badge instead so they choose when to scroll back to top.
+      state.newItemCount = newCount;
+      updateNewItemsBadge();
+    } else {
+      // Either it's an explicit refresh or the very first load — render now.
+      seedKnownUrls(data);
+      state.newItemCount = 0;
+      updateNewItemsBadge();
+      renderDashboard(data);
+    }
   } catch (error) {
     console.error(error);
-    setHealth("Không tải được dữ liệu", "err");
-    el.briefText.textContent = "Không tải được dữ liệu. Hãy thử làm mới lại.";
-    el.newsList.innerHTML = `<div class="empty-state">Không lấy được tin trong lần này.</div>`;
-    el.priceList.innerHTML = `<div class="empty-state">Không lấy được giá trong lần này.</div>`;
+    if (!silent) {
+      setHealth("Không tải được dữ liệu", "err");
+      if (!state.dashboard) {
+        el.briefText.textContent = "Không tải được dữ liệu. Hãy thử làm mới lại.";
+        el.newsList.innerHTML = `<div class="empty-state">Không lấy được tin trong lần này.</div>`;
+        el.priceList.innerHTML = `<div class="empty-state">Không lấy được giá trong lần này.</div>`;
+      }
+    }
   } finally {
-    el.refreshBtn.disabled = false;
+    if (!silent) el.refreshBtn.disabled = false;
+  }
+}
+
+function collectArticleUrls(dashboard) {
+  const urls = [];
+  for (const topic of dashboard?.topics || []) {
+    for (const item of topic.items || []) {
+      if (item?.url) urls.push(item.url);
+    }
+  }
+  return urls;
+}
+
+function seedKnownUrls(dashboard) {
+  state.knownUrls = new Set(collectArticleUrls(dashboard));
+}
+
+function countNewArticles(dashboard) {
+  if (!state.knownUrls.size) return 0;
+  return collectArticleUrls(dashboard).filter((url) => !state.knownUrls.has(url)).length;
+}
+
+function updateNewItemsBadge() {
+  if (!el.refreshBtn) return;
+  let badge = el.refreshBtn.querySelector(".new-items-badge");
+  if (state.newItemCount > 0) {
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "new-items-badge";
+      el.refreshBtn.appendChild(badge);
+    }
+    badge.textContent = state.newItemCount > 99 ? "99+" : String(state.newItemCount);
+    el.refreshBtn.title = `Có ${state.newItemCount} tin mới — bấm để tải`;
+  } else if (badge) {
+    badge.remove();
+    el.refreshBtn.title = "Làm mới dữ liệu";
+  }
+}
+
+function renderSkeletons() {
+  if (el.newsList) {
+    el.newsList.innerHTML = Array.from({ length: 4 })
+      .map(
+        () => `
+          <article class="news-card skeleton-card">
+            <div class="news-card-head">
+              <span class="skeleton-line skeleton-line-pill"></span>
+              <span class="skeleton-line skeleton-line-pill"></span>
+            </div>
+            <div class="skeleton-line skeleton-line-title"></div>
+            <div class="skeleton-line skeleton-line-text"></div>
+            <div class="skeleton-line skeleton-line-text short"></div>
+          </article>`,
+      )
+      .join("");
+  }
+  if (el.priceList) {
+    el.priceList.innerHTML = Array.from({ length: 3 })
+      .map(
+        () => `
+          <article class="price-card skeleton-card">
+            <div class="skeleton-line skeleton-line-title"></div>
+            <div class="skeleton-line skeleton-line-text short"></div>
+            <div class="skeleton-line skeleton-line-text"></div>
+          </article>`,
+      )
+      .join("");
+  }
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  state.autoRefreshTimerId = setInterval(() => {
+    if (document.visibilityState === "hidden") return;
+    loadDashboard(false, { silent: true });
+  }, AUTO_REFRESH_MS);
+}
+
+function stopAutoRefresh() {
+  if (state.autoRefreshTimerId !== null) {
+    clearInterval(state.autoRefreshTimerId);
+    state.autoRefreshTimerId = null;
   }
 }
 
@@ -958,6 +1069,60 @@ function exportPricesCsv() {
       }, 80);
     });
   }
+  bindKeyboardShortcuts();
+  bindVisibilityHandlers();
+}
+
+function bindKeyboardShortcuts() {
+  document.addEventListener("keydown", (event) => {
+    // Skip when the user is typing in an input/textarea/contenteditable.
+    const target = event.target;
+    const isEditable = target instanceof HTMLElement
+      && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+
+    // Esc: clear active filter even from inside the input.
+    if (event.key === "Escape") {
+      if (state.newsFilter && el.newsFilterInput) {
+        event.preventDefault();
+        el.newsFilterInput.value = "";
+        state.newsFilter = "";
+        renderNews(state.activeTopicData);
+        el.newsFilterInput.blur();
+      }
+      return;
+    }
+
+    if (isEditable) return;
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+    if (event.key === "/") {
+      // Vim/GitHub-style: focus the news filter for quick keyword scanning.
+      if (el.newsFilterInput) {
+        event.preventDefault();
+        el.newsFilterInput.focus();
+        el.newsFilterInput.select();
+      }
+    } else if (event.key === "r" || event.key === "R") {
+      event.preventDefault();
+      loadDashboard(true);
+    } else if (event.key === "?" && el.queryInput) {
+      event.preventDefault();
+      el.queryInput.focus();
+    } else if (event.key === "t" || event.key === "T") {
+      event.preventDefault();
+      toggleTheme();
+    }
+  });
+}
+
+function bindVisibilityHandlers() {
+  // When the tab becomes visible again, do an immediate silent refresh so
+  // the user sees how many new items piled up while they were away.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      loadDashboard(false, { silent: true });
+    }
+  });
 }
 
 async function init() {
@@ -970,6 +1135,7 @@ async function init() {
   lucide.createIcons();
   await loadHealth();
   await loadDashboard(false);
+  startAutoRefresh();
   registerServiceWorker();
 }
 
