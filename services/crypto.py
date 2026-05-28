@@ -31,6 +31,12 @@ DEFAULT_SYMBOLS: list[dict[str, str]] = [
     {"symbol": "ETHUSDT", "label": "Ethereum", "icon": "gem"},
     {"symbol": "SOLUSDT", "label": "Solana", "icon": "zap"},
     {"symbol": "BNBUSDT", "label": "BNB", "icon": "shield"},
+    {"symbol": "XRPUSDT", "label": "XRP", "icon": "circle-dot"},
+    {"symbol": "DOGEUSDT", "label": "Dogecoin", "icon": "dog"},
+    {"symbol": "ADAUSDT", "label": "Cardano", "icon": "hexagon"},
+    {"symbol": "AVAXUSDT", "label": "Avalanche", "icon": "mountain"},
+    {"symbol": "DOTUSDT", "label": "Polkadot", "icon": "circle"},
+    {"symbol": "LINKUSDT", "label": "Chainlink", "icon": "link"},
 ]
 
 

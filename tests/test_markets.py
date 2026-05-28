@@ -84,11 +84,13 @@ def test_crypto_returns_empty_on_failure(monkeypatch):
 def test_crypto_resolve_symbols_env_override(monkeypatch):
     from services import crypto
 
-    monkeypatch.setenv("CRYPTO_SYMBOLS", "BTCUSDT, DOGEUSDT")
+    monkeypatch.setenv("CRYPTO_SYMBOLS", "BTCUSDT, DOGEUSDT, FAKEUSDT")
     specs = crypto._resolve_symbols()
-    assert [item["symbol"] for item in specs] == ["BTCUSDT", "DOGEUSDT"]
-    # Known coin keeps its display label, unknown gets a fallback derived from the symbol.
-    assert next(item for item in specs if item["symbol"] == "DOGEUSDT")["label"] == "DOGE"
+    assert [item["symbol"] for item in specs] == ["BTCUSDT", "DOGEUSDT", "FAKEUSDT"]
+    # Known coin keeps its display label from DEFAULT_SYMBOLS.
+    assert next(item for item in specs if item["symbol"] == "DOGEUSDT")["label"] == "Dogecoin"
+    # Unknown coin gets a fallback label derived from the symbol.
+    assert next(item for item in specs if item["symbol"] == "FAKEUSDT")["label"] == "FAKE"
 
 
 # --- Stocks ----------------------------------------------------------------------------

@@ -24,6 +24,18 @@ INDICES = [
     {"symbol": "UPCOM", "label": "UPCOM", "icon": "line-chart"},
 ]
 
+# Top VN stocks tracked via Yahoo Finance (suffix .VN).
+VN_STOCKS = [
+    {"symbol": "FPT.VN", "label": "FPT Corp", "icon": "cpu"},
+    {"symbol": "VNM.VN", "label": "Vinamilk", "icon": "milk"},
+    {"symbol": "HPG.VN", "label": "Hòa Phát", "icon": "factory"},
+    {"symbol": "VCB.VN", "label": "Vietcombank", "icon": "landmark"},
+    {"symbol": "TCB.VN", "label": "Techcombank", "icon": "banknote"},
+    {"symbol": "MWG.VN", "label": "Thế Giới Di Động", "icon": "smartphone"},
+    {"symbol": "VIC.VN", "label": "Vingroup", "icon": "building"},
+    {"symbol": "VHM.VN", "label": "Vinhomes", "icon": "home"},
+]
+
 
 def _now_label() -> str:
     return datetime.now(LOCAL_TZ).strftime("%d/%m %H:%M")
@@ -97,7 +109,66 @@ def fetch_stock_indices() -> list[dict[str, Any]]:
                 "session_history": snapshot["session_history"],
             }
         )
+
+    # Fetch individual VN stocks via Yahoo Finance.
+    for spec in VN_STOCKS:
+        stock_data = _fetch_yahoo_stock(spec["symbol"])
+        if stock_data is None:
+            continue
+        cards.append(
+            {
+                "key": f"stock_{spec['symbol'].replace('.', '_').lower()}",
+                "label": spec["label"],
+                "provider": "Yahoo",
+                "symbol": spec["symbol"],
+                "icon": spec["icon"],
+                "price": stock_data["price"],
+                "change": stock_data["change"],
+                "change_percent": stock_data["change_percent"],
+                "price_text": f"{stock_data['price']:,.0f}".replace(",", "."),
+                "change_text": _format_change(stock_data["change"], stock_data["change_percent"]),
+                "unit": "VND",
+                "updated_label": _now_label(),
+                "source_url": f"https://finance.yahoo.com/quote/{spec['symbol']}",
+                "session_history": [],
+            }
+        )
     return cards
+
+
+def _fetch_yahoo_stock(symbol: str) -> dict[str, Any] | None:
+    """Fetch a single VN stock price from Yahoo Finance chart endpoint."""
+
+    from urllib.parse import quote
+
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{quote(symbol)}"
+    try:
+        response = requests.get(
+            url,
+            params={"range": "5d", "interval": "1d", "includePrePost": "false"},
+            headers=HEADERS,
+            timeout=TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except Exception:
+        return None
+
+    result = data.get("chart", {}).get("result", [])
+    if not result:
+        return None
+    meta = result[0].get("meta", {})
+    price = meta.get("regularMarketPrice")
+    prev_close = meta.get("chartPreviousClose") or meta.get("previousClose")
+    if price is None:
+        return None
+    change = (price - prev_close) if prev_close else 0
+    change_pct = (change / prev_close * 100) if prev_close else 0
+    return {
+        "price": float(price),
+        "change": float(change),
+        "change_percent": float(change_pct),
+    }
 
 
 def _format_change(value: float, percent: float) -> str:

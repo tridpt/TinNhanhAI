@@ -252,9 +252,16 @@
   </template>
 
   <script src="/app.js"></script>
-  <button id="scroll-top-btn" class="scroll-top-btn" type="button" title="Lên đầu trang" aria-label="Lên đầu trang" hidden>
+  <button id="scroll-top-btn" class="scroll-top-btn" type="button" title="Lên đầu trang" aria-label="Lên đầu trang" hidden
+    onclick="window.scrollTo({top:0,behavior:'smooth'});document.documentElement.scrollTop=0;">
     <i data-lucide="chevron-up"></i>
   </button>
+  <script>
+    (function(){
+      var btn = document.getElementById('scroll-top-btn');
+      if(btn) window.addEventListener('scroll', function(){btn.hidden = window.scrollY < 400;}, {passive:true});
+    })();
+  </script>
 </body>
 </html>
 
