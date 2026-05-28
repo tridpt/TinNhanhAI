@@ -1108,7 +1108,7 @@ function exportPricesCsv() {
   downloadCsv(`tinnhanh-prices-${stamp}.csv`, rows);
 }
 
-
+function bindEvents() {
   el.refreshBtn.addEventListener("click", () => loadDashboard(true));
   el.queryForm.addEventListener("submit", async (event) => {
     event.preventDefault();
