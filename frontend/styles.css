@@ -2035,3 +2035,18 @@ html[data-theme="dark"] .chart-backdrop {
     font-size: 0.68rem;
   }
 }
+
+
+.panel-weather {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 18px 22px 20px;
+  box-shadow: var(--shadow);
+}
+
+.panel-weather .weather-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
