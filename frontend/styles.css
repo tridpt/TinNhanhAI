@@ -1440,3 +1440,306 @@ html[data-theme="dark"] .weather-icon {
 html[data-theme="dark"] .reader-backdrop {
   background: rgba(0, 0, 0, 0.7);
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE (≤ 640px)
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+  html {
+    font-size: 15px;
+  }
+
+  .shell {
+    width: calc(100% - 16px);
+    margin: 10px auto 24px;
+  }
+
+  .topbar {
+    padding: 12px 14px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+  }
+
+  .brand-mark i {
+    width: 16px;
+    height: 16px;
+  }
+
+  .brand-text h1 {
+    font-size: 1rem;
+  }
+
+  .brand-text p {
+    font-size: 0.72rem;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+  }
+
+  .status-pill {
+    font-size: 0.72rem;
+    padding: 4px 10px;
+  }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Query box */
+  .query-box {
+    padding: 14px;
+  }
+
+  .section-label {
+    font-size: 0.82rem;
+  }
+
+  .query-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .query-row textarea {
+    min-height: 52px;
+    font-size: 0.9rem;
+  }
+
+  .primary-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 16px;
+  }
+
+  /* Chips */
+  .chip-row {
+    gap: 6px;
+  }
+
+  .chip {
+    font-size: 0.78rem;
+    padding: 6px 10px;
+  }
+
+  .chip i {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* Metrics */
+  .metric-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .metric-card {
+    padding: 10px 12px;
+  }
+
+  .metric-card strong {
+    font-size: 1.3rem;
+  }
+
+  .brief-text {
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  /* Topic tabs */
+  .topic-tabs {
+    gap: 6px;
+  }
+
+  .topic-tab {
+    font-size: 0.78rem;
+    padding: 6px 10px;
+  }
+
+  .topic-tab i {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* News toolbar */
+  .news-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .news-filter {
+    flex: unset;
+  }
+
+  /* News cards */
+  .news-card {
+    padding: 12px;
+  }
+
+  .news-title {
+    font-size: 0.92rem;
+  }
+
+  .news-summary {
+    font-size: 0.82rem;
+    -webkit-line-clamp: 3;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .news-card-head {
+    gap: 6px;
+  }
+
+  .source-pill,
+  .time-pill {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+  }
+
+  .bookmark-btn {
+    width: 26px;
+    height: 26px;
+  }
+
+  /* Prices */
+  .panel-prices {
+    padding: 14px 14px 16px;
+  }
+
+  .price-list,
+  .price-list-vn {
+    grid-template-columns: 1fr;
+  }
+
+  .price-card {
+    padding: 12px;
+  }
+
+  .price-card-head h3 {
+    font-size: 0.88rem;
+  }
+
+  .price-main strong {
+    font-size: 1rem;
+  }
+
+  .price-spark .spark-svg {
+    height: 36px;
+  }
+
+  /* Compare chart */
+  .compare-svg {
+    height: 120px;
+  }
+
+  .compare-legend {
+    gap: 8px;
+    font-size: 0.72rem;
+  }
+
+  /* Markets band */
+  .panel-markets {
+    padding: 14px 14px 16px;
+  }
+
+  .markets-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .market-card {
+    padding: 10px 12px;
+  }
+
+  .market-price {
+    font-size: 0.95rem;
+  }
+
+  .market-spark .spark-svg {
+    height: 36px;
+  }
+
+  /* Weather */
+  .weather-temp {
+    font-size: 1.3rem;
+  }
+
+  /* Answer section */
+  .answer-tab-buttons {
+    gap: 6px;
+  }
+
+  .answer-tab {
+    font-size: 0.78rem;
+    padding: 6px 10px;
+  }
+
+  .answer-summary {
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .answer-raw-body {
+    font-size: 0.7rem;
+    max-height: 260px;
+  }
+
+  .answer-sources {
+    font-size: 0.82rem;
+  }
+
+  /* Reader modal */
+  .reader-header {
+    padding: 14px 16px 10px;
+  }
+
+  .reader-title {
+    font-size: 1rem;
+  }
+
+  .reader-body {
+    padding: 12px 16px 20px;
+    font-size: 0.92rem;
+    line-height: 1.7;
+  }
+
+  .reader-actions .chip {
+    font-size: 0.72rem;
+    padding: 5px 8px;
+  }
+
+  /* Export button */
+  #export-prices-btn span {
+    display: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TABLET (641px – 980px)
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 641px) and (max-width: 980px) {
+  .price-list,
+  .price-list-vn {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .markets-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .query-row {
+    grid-template-columns: 1fr auto;
+  }
+}
