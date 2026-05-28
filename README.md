@@ -7,6 +7,7 @@ Web app tiếng Việt:
 - lịch sử giá 7 ngày (sparkline mini-chart) tự thu thập qua mỗi lần fetch
 - hỏi nhanh AI: tin tức, giá hàng hóa hoặc tra cứu giá sản phẩm
 - (tùy chọn) gửi alert Telegram khi có tin chứa từ khóa bạn theo dõi
+- PWA: cài được như app trên điện thoại (manifest + service worker, hoạt động cả khi offline ở mức shell)
 
 ## Chạy nhanh (dev)
 

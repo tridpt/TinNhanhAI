@@ -38,6 +38,36 @@ def index():
     return send_from_directory("frontend", "index.html")
 
 
+@app.get("/manifest.webmanifest")
+def manifest():
+    response = send_from_directory("frontend", "manifest.webmanifest")
+    response.headers["Content-Type"] = "application/manifest+json"
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
+
+
+@app.get("/sw.js")
+def service_worker():
+    """Serve the service worker from the root scope.
+
+    Browsers tie a service worker's scope to the directory of its script URL,
+    so the file must live at ``/sw.js`` (not under ``/static/sw.js``) for it
+    to control the whole origin. ``Service-Worker-Allowed`` is sent for
+    completeness even though the script already sits at root.
+    """
+
+    response = send_from_directory("frontend", "sw.js")
+    response.headers["Content-Type"] = "application/javascript"
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
+@app.get("/icons/<path:filename>")
+def icons(filename: str):
+    return send_from_directory("frontend/icons", filename)
+
+
 @app.get("/api/health")
 def health():
     return jsonify(

@@ -88,3 +88,33 @@ def test_ask_runs_through_assistant(flask_client):
     assert response.status_code == 200
     assert response.get_json()["answer"] == "stubbed"
     mock_answer.assert_called_once_with("hello")
+
+
+
+def test_manifest_endpoint(flask_client):
+    response = flask_client.get("/manifest.webmanifest")
+
+    assert response.status_code == 200
+    assert response.headers["Content-Type"] == "application/manifest+json"
+    payload = response.get_json()
+    assert payload["name"] == "TinNhanh AI"
+    assert payload["start_url"] == "/"
+    assert payload["display"] == "standalone"
+
+
+def test_service_worker_endpoint(flask_client):
+    response = flask_client.get("/sw.js")
+
+    assert response.status_code == 200
+    assert "javascript" in response.headers["Content-Type"]
+    # Allowed scope must be the root so the SW can control the whole origin.
+    assert response.headers["Service-Worker-Allowed"] == "/"
+    body = response.data.decode("utf-8")
+    assert "tinnhanh-v" in body
+    assert "fetch" in body  # the SW exports a fetch listener
+
+
+def test_icons_endpoint(flask_client):
+    response = flask_client.get("/icons/icon.svg")
+    assert response.status_code == 200
+    assert "svg" in response.headers["Content-Type"]

@@ -388,6 +388,19 @@ async function init() {
   lucide.createIcons();
   await loadHealth();
   await loadDashboard(false);
+  registerServiceWorker();
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  // Avoid registering when the page is served over plain http (other than localhost).
+  const isLocalhost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  if (window.location.protocol !== "https:" && !isLocalhost) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .catch((err) => console.warn("SW registration failed:", err));
+  });
 }
 
 init();
