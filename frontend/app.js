@@ -274,8 +274,9 @@ function renderSparkline(container, history, options = {}) {
     ? `${firstTs.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} → ${lastTs.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}`
     : "";
 
-  const minLabel = options.formatTick ? options.formatTick(min) : min.toLocaleString("vi-VN");
-  const maxLabel = options.formatTick ? options.formatTick(max) : max.toLocaleString("vi-VN");
+  const formatTick = options.formatTick || ((v) => v.toLocaleString("vi-VN"));
+  const minLabel = formatTick(min);
+  const maxLabel = formatTick(max);
 
   container.innerHTML = `
     <svg class="spark-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
@@ -293,6 +294,176 @@ function renderSparkline(container, history, options = {}) {
       <span>${minLabel} – ${maxLabel}</span>
     </div>
   `;
+
+  // Click to open detailed chart
+  container.style.cursor = "pointer";
+  container.title = "Bấm để xem biểu đồ chi tiết";
+  container.addEventListener("click", () => {
+    openDetailChart(options.label || "", points, { formatTick, stroke });
+  });
+}
+
+// --- Detailed chart modal ----------------------------------------------------
+
+function openDetailChart(label, points, options = {}) {
+  const { formatTick = (v) => v.toLocaleString("vi-VN"), stroke = "#4ade80" } = options;
+  let modal = document.getElementById("chart-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "chart-modal";
+    modal.className = "chart-modal";
+    modal.innerHTML = `
+      <div class="chart-backdrop"></div>
+      <div class="chart-panel">
+        <div class="chart-header">
+          <h3 class="chart-title"></h3>
+          <button class="chart-close icon-btn" type="button" title="Đóng"><i data-lucide="x"></i></button>
+        </div>
+        <div class="chart-body">
+          <div class="chart-tooltip" hidden></div>
+          <svg class="chart-svg"></svg>
+          <div class="chart-x-axis"></div>
+        </div>
+        <div class="chart-footer"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelector(".chart-backdrop").addEventListener("click", closeDetailChart);
+    modal.querySelector(".chart-close").addEventListener("click", closeDetailChart);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal.classList.contains("open")) closeDetailChart();
+    });
+    lucide.createIcons();
+  }
+
+  modal.querySelector(".chart-title").textContent = label || "Biểu đồ giá";
+
+  const values = points.map((p) => Number(p.value));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || Math.abs(max) * 0.001 || 1;
+  const lastValue = values[values.length - 1];
+  const firstValue = values[0];
+  const change = lastValue - firstValue;
+  const changePct = firstValue ? ((change / firstValue) * 100).toFixed(2) : "0.00";
+  const trendUp = change >= 0;
+  const lineColor = trendUp ? "var(--positive, #4ade80)" : "var(--negative, #f87171)";
+
+  const width = 640;
+  const height = 280;
+  const padX = 50;
+  const padY = 20;
+  const chartW = width - padX * 2;
+  const chartH = height - padY * 2;
+
+  // Build path
+  const coords = points.map((point, idx) => {
+    const x = padX + (idx / (points.length - 1)) * chartW;
+    const y = padY + chartH * (1 - (Number(point.value) - min) / span);
+    return { x, y, value: Number(point.value), ts: point.ts };
+  });
+  const pathD = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(" ");
+  const areaD = `${pathD} L${coords[coords.length - 1].x.toFixed(1)} ${padY + chartH} L${padX} ${padY + chartH} Z`;
+
+  // Y-axis ticks (5 levels)
+  const yTicks = Array.from({ length: 5 }, (_, i) => {
+    const value = min + (span * i) / 4;
+    const y = padY + chartH * (1 - i / 4);
+    return { value, y };
+  });
+
+  const gradId = `chart-grad-${Math.random().toString(36).slice(2, 8)}`;
+  const svgContent = `
+    <defs>
+      <linearGradient id="${gradId}" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.2"/>
+        <stop offset="100%" stop-color="${lineColor}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${yTicks.map((t) => `
+      <line x1="${padX}" y1="${t.y.toFixed(1)}" x2="${width - padX}" y2="${t.y.toFixed(1)}" stroke="var(--line)" stroke-dasharray="4 4" stroke-width="0.5"/>
+      <text x="${padX - 6}" y="${t.y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" fill="var(--muted)" font-size="10">${formatTick(t.value)}</text>
+    `).join("")}
+    <path d="${areaD}" fill="url(#${gradId})"/>
+    <path d="${pathD}" fill="none" stroke="${lineColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${coords[coords.length - 1].x.toFixed(1)}" cy="${coords[coords.length - 1].y.toFixed(1)}" r="4" fill="${lineColor}"/>
+    <line class="chart-crosshair" x1="0" y1="${padY}" x2="0" y2="${padY + chartH}" stroke="var(--muted)" stroke-width="0.8" stroke-dasharray="3 3" opacity="0"/>
+    <circle class="chart-dot" cx="0" cy="0" r="5" fill="${lineColor}" opacity="0"/>
+  `;
+
+  const svg = modal.querySelector(".chart-svg");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.innerHTML = svgContent;
+
+  // X-axis labels
+  const xAxis = modal.querySelector(".chart-x-axis");
+  const xLabels = [0, Math.floor(points.length / 4), Math.floor(points.length / 2), Math.floor(points.length * 3 / 4), points.length - 1];
+  xAxis.innerHTML = xLabels.map((idx) => {
+    const ts = points[idx]?.ts;
+    const date = ts ? new Date(ts * 1000) : null;
+    const label = date ? date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+    return `<span>${label}</span>`;
+  }).join("");
+
+  // Footer stats
+  const footer = modal.querySelector(".chart-footer");
+  const sign = change >= 0 ? "+" : "";
+  footer.innerHTML = `
+    <span>Hiện tại: <strong>${formatTick(lastValue)}</strong></span>
+    <span>Thay đổi: <strong style="color:${lineColor}">${sign}${formatTick(change)} (${sign}${changePct}%)</strong></span>
+    <span>Thấp nhất: ${formatTick(min)}</span>
+    <span>Cao nhất: ${formatTick(max)}</span>
+    <span>${points.length} điểm dữ liệu</span>
+  `;
+
+  // Tooltip on hover
+  const tooltip = modal.querySelector(".chart-tooltip");
+  const crosshair = svg.querySelector(".chart-crosshair");
+  const dot = svg.querySelector(".chart-dot");
+  const chartBody = modal.querySelector(".chart-body");
+
+  chartBody.addEventListener("mousemove", (e) => {
+    const rect = svg.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const ratio = mouseX / rect.width;
+    const idx = Math.round(ratio * (coords.length - 1));
+    if (idx < 0 || idx >= coords.length) return;
+    const c = coords[idx];
+    const svgRatioX = c.x / width;
+    const svgRatioY = c.y / height;
+
+    crosshair.setAttribute("x1", c.x.toFixed(1));
+    crosshair.setAttribute("x2", c.x.toFixed(1));
+    crosshair.setAttribute("opacity", "1");
+    dot.setAttribute("cx", c.x.toFixed(1));
+    dot.setAttribute("cy", c.y.toFixed(1));
+    dot.setAttribute("opacity", "1");
+
+    const ts = points[idx]?.ts;
+    const date = ts ? new Date(ts * 1000) : null;
+    const dateStr = date ? date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+    tooltip.textContent = `${dateStr}  ·  ${formatTick(c.value)}`;
+    tooltip.hidden = false;
+    tooltip.style.left = `${Math.min(Math.max(svgRatioX * 100, 10), 90)}%`;
+  });
+
+  chartBody.addEventListener("mouseleave", () => {
+    crosshair.setAttribute("opacity", "0");
+    dot.setAttribute("opacity", "0");
+    tooltip.hidden = true;
+  });
+
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+  lucide.createIcons();
+}
+
+function closeDetailChart() {
+  const modal = document.getElementById("chart-modal");
+  if (modal) {
+    modal.classList.remove("open");
+    document.body.style.overflow = "";
+  }
 }
 
 function renderPrices(cards) {
@@ -320,6 +491,7 @@ function renderPrices(cards) {
       : "Cập nhật: chưa rõ";
     renderSparkline(node.querySelector(".price-spark"), card.history, {
       formatTick: (value) => fmtNumber(value, card.precision ?? 2),
+      label: card.label || card.key || "",
     });
     el.priceList.appendChild(node);
   });
@@ -497,6 +669,7 @@ function renderMarketCards(container, cards, options = {}) {
       const sparkContainer = node.querySelector(".market-spark");
       renderSparkline(sparkContainer, card.history, {
         formatTick: (value) => Number(value).toLocaleString("vi-VN", { maximumFractionDigits: 2 }),
+        label: card.label || card.key || "",
       });
     }
   });
@@ -691,6 +864,7 @@ function renderVnPrices(cards) {
       : "Cập nhật: chưa rõ";
     renderSparkline(node.querySelector(".price-spark"), card.history, {
       formatTick: (value) => Number(value).toLocaleString("vi-VN"),
+      label: card.label || card.key || "",
     });
     el.vnPriceList.appendChild(node);
   });
