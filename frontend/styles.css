@@ -633,3 +633,22 @@ button {
   --positive: #4ade80;
   --negative: #f87171;
 }
+
+
+.price-card-vn {
+  position: relative;
+}
+
+.price-provider {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+}

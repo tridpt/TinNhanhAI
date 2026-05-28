@@ -196,7 +196,8 @@ def fetch_usd_vnd() -> dict[str, Any] | None:
         return _fetch_usd_open_er()
     return {
         "key": "usd_vnd",
-        "label": "USD/VND (Vietcombank)",
+        "label": "USD/VND",
+        "provider": "Vietcombank",
         "icon": "banknote",
         "buy": buy_transfer or buy_cash,
         "sell": sell,
@@ -226,7 +227,8 @@ def _fetch_usd_open_er() -> dict[str, Any] | None:
     rate = float(vnd_rate)
     return {
         "key": "usd_vnd",
-        "label": "USD/VND (open.er-api)",
+        "label": "USD/VND",
+        "provider": "open.er-api",
         "icon": "banknote",
         "buy": rate,
         "sell": rate,
@@ -279,6 +281,7 @@ def fetch_petrolimex() -> list[dict[str, Any]]:
             {
                 "key": key,
                 "label": label,
+                "provider": "Petrolimex",
                 "icon": "fuel",
                 "buy": None,
                 "sell": price,
@@ -297,14 +300,14 @@ def get_vn_prices(*, force: bool = False) -> dict[str, Any]:
         if cached:
             return cached
 
+    from .vn_gold import fetch_all_vn_gold
+
     cards: list[dict[str, Any]] = []
-    gold = fetch_sjc_gold()
-    if gold:
-        cards.append(gold)
     fx = fetch_usd_vnd()
     if fx:
         cards.append(fx)
     cards.extend(fetch_petrolimex())
+    cards.extend(fetch_all_vn_gold())
 
     payload = {
         "generated_at": datetime.now(LOCAL_TZ).isoformat(),

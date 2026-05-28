@@ -56,7 +56,9 @@ Copy `.env.example` thành `.env` rồi điền:
 
 - RSS: VnExpress, Thanh Niên
 - Giá thế giới: Yahoo Finance chart (vàng GC=F, dầu CL=F, xăng RB=F)
-- Giá Việt Nam: SJC, Vietcombank, Petrolimex
+- Giá vàng Việt Nam: SJC official, PNJ (Phú Nhuận Jewelry), Bảo Tín Minh Châu (BTMC) - chạy song song để khi 1 nguồn bị block thì 2 nguồn còn lại vẫn đủ
+- Tỷ giá: Vietcombank (fallback open.er-api.com)
+- Giá xăng VN: Petrolimex (best-effort do site render bằng JS)
 - Tìm kiếm web: DuckDuckGo (qua thư viện `ddgs`)
 - Lịch sử giá: SQLite cục bộ tại `data/history.db` (throttle 4 phút/datapoint, giữ 60 ngày)
 

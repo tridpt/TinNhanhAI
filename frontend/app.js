@@ -277,6 +277,11 @@ function renderVnPrices(cards) {
     node.querySelector(".price-symbol").textContent = card.unit || "";
     node.querySelector(".price-value").textContent = card.price_text || "Chưa có dữ liệu";
     node.querySelector(".price-unit").textContent = "";
+    const providerEl = node.querySelector(".price-provider");
+    if (providerEl) {
+      providerEl.textContent = card.provider || "";
+      providerEl.style.display = card.provider ? "" : "none";
+    }
     node.querySelector(".price-updated").textContent = card.updated_label
       ? `Cập nhật: ${card.updated_label}`
       : "Cập nhật: chưa rõ";
