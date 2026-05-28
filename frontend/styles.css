@@ -1948,6 +1948,12 @@ html[data-theme="dark"] .chart-backdrop {
   padding-top: 10px;
   border-top: 1px dashed var(--line);
   overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.forecast-row::-webkit-scrollbar {
+  display: none;
 }
 
 .forecast-day {
