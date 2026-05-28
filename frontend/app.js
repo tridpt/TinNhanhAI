@@ -15,7 +15,7 @@ const state = {
 
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
-const topicOrder = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao"];
+const topicOrder = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao", "giai_tri", "suc_khoe"];
 const topicMeta = {
   all: { label: "Tổng hợp", icon: "layout-grid" },
   thoi_su: { label: "Thời sự", icon: "newspaper" },
@@ -23,6 +23,8 @@ const topicMeta = {
   cong_nghe: { label: "Công nghệ", icon: "cpu" },
   the_gioi: { label: "Thế giới", icon: "globe" },
   the_thao: { label: "Thể thao", icon: "trophy" },
+  giai_tri: { label: "Giải trí", icon: "clapperboard" },
+  suc_khoe: { label: "Sức khỏe", icon: "heart-pulse" },
 };
 
 // localStorage keys, kept short and namespaced so we can recognize them in
@@ -200,6 +202,14 @@ function renderNews(topic) {
       openReader(item.url, item.title);
     });
     node.querySelector(".news-summary").textContent = item.summary || "Không có mô tả.";
+
+    const thumb = node.querySelector(".news-thumb");
+    if (thumb && item.thumbnail) {
+      thumb.src = item.thumbnail;
+      thumb.alt = item.title || "";
+      thumb.hidden = false;
+      thumb.addEventListener("error", () => { thumb.hidden = true; });
+    }
 
     const bookmarkBtn = node.querySelector(".bookmark-btn");
     if (bookmarkBtn) {
@@ -1307,13 +1317,22 @@ function bindKeyboardShortcuts() {
 }
 
 function bindVisibilityHandlers() {
-  // When the tab becomes visible again, do an immediate silent refresh so
-  // the user sees how many new items piled up while they were away.
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
       loadDashboard(false, { silent: true });
     }
   });
+
+  // Scroll-to-top button
+  const scrollBtn = document.getElementById("scroll-top-btn");
+  if (scrollBtn) {
+    window.addEventListener("scroll", () => {
+      scrollBtn.hidden = window.scrollY < 400;
+    }, { passive: true });
+    scrollBtn.addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
 }
 
 async function init() {

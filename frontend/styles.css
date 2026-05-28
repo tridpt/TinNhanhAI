@@ -1743,3 +1743,70 @@ html[data-theme="dark"] .reader-backdrop {
     grid-template-columns: 1fr auto;
   }
 }
+
+
+/* News card with thumbnail */
+.news-card-body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.news-card-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.news-thumb {
+  width: 100px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .news-thumb {
+    width: 72px;
+    height: 52px;
+  }
+}
+
+/* Scroll-to-top button */
+.scroll-top-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 900;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.scroll-top-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.scroll-top-btn i {
+  width: 20px;
+  height: 20px;
+}
+
+@media (max-width: 640px) {
+  .scroll-top-btn {
+    bottom: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+  }
+}

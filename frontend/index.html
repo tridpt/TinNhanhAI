@@ -188,8 +188,13 @@
           <i data-lucide="bookmark"></i>
         </button>
       </div>
-      <a class="news-title" target="_blank" rel="noreferrer"></a>
-      <p class="news-summary"></p>
+      <div class="news-card-body">
+        <div class="news-card-text">
+          <a class="news-title" target="_blank" rel="noreferrer"></a>
+          <p class="news-summary"></p>
+        </div>
+        <img class="news-thumb" loading="lazy" alt="" hidden>
+      </div>
     </article>
   </template>
 
@@ -239,6 +244,9 @@
   </template>
 
   <script src="/app.js"></script>
+  <button id="scroll-top-btn" class="scroll-top-btn" type="button" title="Lên đầu trang" aria-label="Lên đầu trang" hidden>
+    <i data-lucide="chevron-up"></i>
+  </button>
 </body>
 </html>
 

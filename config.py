@@ -37,7 +37,7 @@ PRICE_REFRESH_SECONDS = int(os.getenv("PRICE_REFRESH_SECONDS", "300"))
 DASHBOARD_REFRESH_SECONDS = int(os.getenv("DASHBOARD_REFRESH_SECONDS", "600"))
 SEARCH_REFRESH_SECONDS = int(os.getenv("SEARCH_REFRESH_SECONDS", "300"))
 
-NEWS_TOPIC_ORDER = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao"]
+NEWS_TOPIC_ORDER = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao", "giai_tri", "suc_khoe"]
 
 NEWS_TOPIC_META = {
     "all": {
@@ -63,6 +63,14 @@ NEWS_TOPIC_META = {
     "the_thao": {
         "label": "Thể thao",
         "icon": "trophy",
+    },
+    "giai_tri": {
+        "label": "Giải trí",
+        "icon": "clapperboard",
+    },
+    "suc_khoe": {
+        "label": "Sức khỏe",
+        "icon": "heart-pulse",
     },
 }
 
@@ -118,6 +126,23 @@ NEWS_TOPIC_SOURCES = {
         {"name": "Tiền Phong", "url": "https://tienphong.vn/rss/the-thao-11.rss"},
         {"name": "Người Lao Động", "url": "https://nld.com.vn/rss/the-thao.rss"},
     ],
+    "giai_tri": [
+        {"name": "VnExpress", "url": "https://vnexpress.net/rss/giai-tri.rss"},
+        {"name": "Thanh Niên", "url": "https://thanhnien.vn/rss/giai-tri.rss"},
+        {"name": "Tuổi Trẻ", "url": "https://tuoitre.vn/rss/giai-tri.rss"},
+        {"name": "Dân Trí", "url": "https://dantri.com.vn/rss/giai-tri.rss"},
+        {"name": "Zing News", "url": "https://zingnews.vn/rss/giai-tri.rss"},
+        {"name": "Tiền Phong", "url": "https://tienphong.vn/rss/giai-tri-36.rss"},
+        {"name": "Người Lao Động", "url": "https://nld.com.vn/rss/giai-tri.rss"},
+    ],
+    "suc_khoe": [
+        {"name": "VnExpress", "url": "https://vnexpress.net/rss/suc-khoe.rss"},
+        {"name": "Thanh Niên", "url": "https://thanhnien.vn/rss/suc-khoe.rss"},
+        {"name": "Tuổi Trẻ", "url": "https://tuoitre.vn/rss/suc-khoe.rss"},
+        {"name": "Dân Trí", "url": "https://dantri.com.vn/rss/suc-khoe.rss"},
+        {"name": "Zing News", "url": "https://zingnews.vn/rss/suc-khoe.rss"},
+        {"name": "Người Lao Động", "url": "https://nld.com.vn/rss/suc-khoe.rss"},
+    ],
 }
 
 NEWS_TOPIC_ALIASES = {
@@ -126,6 +151,8 @@ NEWS_TOPIC_ALIASES = {
     "cong_nghe": ["công nghệ", "khoa học", "ai", "điện thoại", "laptop", "tech"],
     "the_gioi": ["thế giới", "quốc tế", "ngoài nước", "world"],
     "the_thao": ["thể thao", "bóng đá", "sports", "football", "olympic"],
+    "giai_tri": ["giải trí", "phim", "nhạc", "showbiz", "ca sĩ", "diễn viên", "gameshow"],
+    "suc_khoe": ["sức khỏe", "y tế", "bệnh", "thuốc", "dinh dưỡng", "tập luyện", "health"],
 }
 
 PRICE_SPECS = [

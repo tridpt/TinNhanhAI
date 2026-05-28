@@ -61,6 +61,7 @@ def _fetch_feed(url: str) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     for entry in feed.entries:
         published_dt = _parse_entry_time(entry)
+        thumbnail = _extract_thumbnail(entry)
         items.append(
             {
                 "title": _clean_text(entry.get("title")),
@@ -68,9 +69,40 @@ def _fetch_feed(url: str) -> list[dict[str, Any]]:
                 "url": entry.get("link") or "",
                 "published_at": _to_iso(published_dt),
                 "published_label": _time_label(published_dt),
+                "thumbnail": thumbnail,
             }
         )
     return items
+
+
+def _extract_thumbnail(entry: Any) -> str:
+    """Best-effort thumbnail URL from RSS entry metadata."""
+
+    # <enclosure url="..." type="image/...">
+    for enc in getattr(entry, "enclosures", []) or []:
+        url = enc.get("href") or enc.get("url") or ""
+        enc_type = enc.get("type") or ""
+        if url and ("image" in enc_type or url.endswith((".jpg", ".jpeg", ".png", ".webp"))):
+            return url
+
+    # <media:content url="..."> or <media:thumbnail url="...">
+    media = entry.get("media_content") or entry.get("media_thumbnail") or []
+    if isinstance(media, list):
+        for item in media:
+            url = item.get("url") or ""
+            if url:
+                return url
+
+    # Some feeds put image in description HTML
+    desc = entry.get("summary") or entry.get("description") or ""
+    if "<img" in desc:
+        import re as _re
+
+        match = _re.search(r'<img[^>]+src=["\']([^"\']+)["\']', desc)
+        if match:
+            return match.group(1)
+
+    return ""
 
 
 def _topic_label(topic_key: str) -> str:
