@@ -1052,10 +1052,19 @@ function stopAutoRefresh() {
 }
 
 async function askQuestion(question) {
-  if (!question.trim() || state.loadingQuestion) return;
+  if (state.loadingQuestion) return;
+  if (!question.trim()) {
+    el.answerMeta.textContent = "";
+    el.answerBox.innerHTML = `<p class="muted">Hãy nhập câu hỏi vào ô phía trên rồi bấm "Hỏi ngay".</p>`;
+    el.queryInput.focus();
+    return;
+  }
   state.loadingQuestion = true;
   el.answerMeta.textContent = "Đang suy nghĩ...";
   el.answerBox.innerHTML = `<p class="muted">Đang lấy nguồn...</p>`;
+  // Scroll to answer section so user sees the response appearing.
+  const answerSection = el.answerBox.closest(".band");
+  if (answerSection) answerSection.scrollIntoView({ behavior: "smooth", block: "start" });
   try {
     const response = await fetch("/api/ask", {
       method: "POST",
