@@ -47,6 +47,12 @@ docker run --rm -p 5055:5055 \
 Mount `.cache` và `state` để giữ cache giữa các lần restart và bộ nhớ
 "đã gửi" của Telegram watcher.
 
+## Deploy lên Fly.io
+
+Xem [docs/DEPLOY.md](docs/DEPLOY.md) — gồm bước cài `flyctl`, tạo app,
+mount persistent volume, set secret cho OpenAI/Telegram, và auto-deploy
+qua GitHub Actions.
+
 ## Cấu hình
 
 Copy `.env.example` thành `.env` rồi điền:

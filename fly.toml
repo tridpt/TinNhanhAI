@@ -1,0 +1,52 @@
+# fly.toml for TinNhanh AI
+#
+# Generate the actual app name and region with `fly launch --no-deploy`
+# the first time, then `fly deploy` afterwards. The values below are sane
+# defaults; override `app` to a globally unique slug before launching.
+#
+# Free tier (Singapore "sin" region is closest to Vietnam):
+#   - 1 shared-cpu-1x machine with 256 MB RAM
+#   - 3 GB persistent volume for /app/data, /app/.cache, /app/state
+#   - SSL terminated automatically; HTTP redirects to HTTPS
+
+app = "tinnhanh-ai"
+primary_region = "sin"
+kill_signal = "SIGINT"
+kill_timeout = "10s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  HOST = "0.0.0.0"
+  PORT = "8080"
+  TINNHANH_PROD = "1"
+  DEBUG = "0"
+  ASK_RATE_LIMIT_PER_MINUTE = "30"
+
+# Single HTTP service on port 8080 (Fly's edge proxy maps 443 → 8080).
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/api/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
+
+# Single persistent volume for cache + history DB + Telegram seen-state.
+# Create it with: fly volumes create tinnhanh_data --region sin --size 1
+[mounts]
+  source = "tinnhanh_data"
+  destination = "/app/data"
