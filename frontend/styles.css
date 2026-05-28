@@ -17,6 +17,45 @@
   --radius-xs: 6px;
 }
 
+html[data-theme="dark"] {
+  --bg: #0b1220;
+  --surface: #131c2e;
+  --surface-soft: #0f172a;
+  --line: #243049;
+  --line-strong: #2f3d59;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --accent: #2dd4bf;
+  --accent-2: #60a5fa;
+  --accent-3: #fbbf24;
+  --success: #4ade80;
+  --danger: #f87171;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="dark"] .topbar {
+  background: rgba(19, 28, 46, 0.85);
+}
+
+html[data-theme="dark"] .status-pill.warn {
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+html[data-theme="dark"] .topic-tab.active {
+  border-color: rgba(45, 212, 191, 0.45);
+  background: rgba(45, 212, 191, 0.12);
+}
+
+html[data-theme="dark"] .answer-tab.active {
+  border-color: rgba(45, 212, 191, 0.45);
+  background: rgba(45, 212, 191, 0.12);
+}
+
+html[data-theme="dark"] .answer-error {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.08);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -752,4 +791,77 @@ button {
   color: var(--danger);
   border-radius: var(--radius-sm);
   font-size: 0.88rem;
+}
+
+
+/* News filter toolbar */
+.news-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0 14px;
+  flex-wrap: wrap;
+}
+
+.news-filter {
+  flex: 1 1 240px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  transition: border-color 0.15s ease;
+}
+
+.news-filter:focus-within {
+  border-color: rgba(15, 118, 110, 0.4);
+  color: var(--text);
+}
+
+.news-filter input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.news-filter input::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+.news-filter i {
+  width: 16px;
+  height: 16px;
+}
+
+.news-filter-stats {
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Recent query chips */
+.chip.chip-recent {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.chip.chip-recent:hover {
+  color: var(--accent);
+  border-color: rgba(15, 118, 110, 0.45);
+}
+
+.chip.chip-clear {
+  border-color: rgba(220, 38, 38, 0.35);
+  color: var(--danger);
+}
+
+.chip.chip-clear:hover {
+  background: rgba(220, 38, 38, 0.06);
 }

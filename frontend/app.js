@@ -1,8 +1,11 @@
 const state = {
   dashboard: null,
   activeTopic: "all",
+  activeTopicData: null,
+  newsFilter: "",
   loadingQuestion: false,
   aiEnabled: false,
+  recentQueries: [],
 };
 
 const topicOrder = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao"];
@@ -15,14 +18,25 @@ const topicMeta = {
   the_thao: { label: "Thể thao", icon: "trophy" },
 };
 
+// localStorage keys, kept short and namespaced so we can recognize them in
+// devtools without polluting the storage tab too much.
+const LS_KEYS = {
+  theme: "tnai.theme",
+  recentQueries: "tnai.recent",
+};
+const RECENT_QUERIES_LIMIT = 8;
+
 const el = {
   healthPill: document.getElementById("health-pill"),
   refreshBtn: document.getElementById("refresh-btn"),
+  themeToggle: document.getElementById("theme-toggle"),
   queryForm: document.getElementById("query-form"),
   queryInput: document.getElementById("query-input"),
   quickChips: document.getElementById("quick-chips"),
   topicTabs: document.getElementById("topic-tabs"),
   newsList: document.getElementById("news-list"),
+  newsFilterInput: document.getElementById("news-filter-input"),
+  newsFilterStats: document.getElementById("news-filter-stats"),
   priceList: document.getElementById("price-list"),
   vnPriceList: document.getElementById("vn-price-list"),
   briefText: document.getElementById("brief-text"),
@@ -103,20 +117,56 @@ function renderTopics(topics) {
   });
 }
 
+function stripVnAccents(text) {
+  return (text || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase();
+}
+
 function renderNews(topic) {
+  state.activeTopicData = topic || null;
   if (!topic) {
     el.newsList.innerHTML = `<div class="empty-state">Không có dữ liệu tin.</div>`;
+    if (el.newsFilterStats) el.newsFilterStats.textContent = "";
     return;
   }
 
   const items = topic.items || [];
+  const filterRaw = (state.newsFilter || "").trim();
+  const filter = stripVnAccents(filterRaw);
+  const filtered = filter
+    ? items.filter((item) => {
+        const haystack = stripVnAccents(
+          `${item.title || ""} ${item.summary || ""} ${item.source || ""}`,
+        );
+        return haystack.includes(filter);
+      })
+    : items;
+
+  if (el.newsFilterStats) {
+    if (!filterRaw) {
+      el.newsFilterStats.textContent = items.length
+        ? `${items.length} bài`
+        : "";
+    } else {
+      el.newsFilterStats.textContent = `${filtered.length}/${items.length} bài khớp`;
+    }
+  }
+
   if (!items.length) {
     el.newsList.innerHTML = `<div class="empty-state">Chưa có bài mới cho chủ đề này.</div>`;
     return;
   }
+  if (!filtered.length) {
+    el.newsList.innerHTML = `<div class="empty-state">Không có bài nào khớp từ khóa "${filterRaw}".</div>`;
+    return;
+  }
 
   el.newsList.innerHTML = "";
-  items.forEach((item) => {
+  filtered.forEach((item) => {
     const node = el.newsTemplate.content.firstElementChild.cloneNode(true);
     node.querySelector(".source-pill").textContent = item.source || topic.label;
     node.querySelector(".time-pill").textContent = item.published_label || formatRelative(item.published_at);
@@ -519,22 +569,161 @@ async function askQuestion(question) {
   }
 }
 
+// --- Theme manager -----------------------------------------------------------
+
+function getStoredTheme() {
+  try {
+    return localStorage.getItem(LS_KEYS.theme);
+  } catch (error) {
+    return null;
+  }
+}
+
+function applyTheme(theme) {
+  const root = document.documentElement;
+  if (theme === "dark") {
+    root.dataset.theme = "dark";
+  } else {
+    delete root.dataset.theme;
+  }
+  if (el.themeToggle) {
+    const icon = el.themeToggle.querySelector("i");
+    if (icon) {
+      icon.setAttribute("data-lucide", theme === "dark" ? "sun" : "moon");
+    }
+    el.themeToggle.title = theme === "dark" ? "Chuyển sang theme sáng" : "Chuyển sang theme tối";
+    lucide.createIcons();
+  }
+}
+
+function initTheme() {
+  const stored = getStoredTheme();
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const theme = stored || (prefersDark ? "dark" : "light");
+  applyTheme(theme);
+}
+
+function toggleTheme() {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(next);
+  try {
+    localStorage.setItem(LS_KEYS.theme, next);
+  } catch (error) {
+    /* private mode etc. — fall back to in-memory only */
+  }
+}
+
+// --- Recent queries ----------------------------------------------------------
+
+function loadRecentQueries() {
+  try {
+    const raw = localStorage.getItem(LS_KEYS.recentQueries);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(0, RECENT_QUERIES_LIMIT) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveRecentQueries(list) {
+  try {
+    localStorage.setItem(LS_KEYS.recentQueries, JSON.stringify(list));
+  } catch (error) {
+    /* ignore quota errors */
+  }
+}
+
+function rememberQuery(query) {
+  const trimmed = (query || "").trim();
+  if (!trimmed) return;
+  const without = state.recentQueries.filter(
+    (item) => item.toLowerCase() !== trimmed.toLowerCase(),
+  );
+  state.recentQueries = [trimmed, ...without].slice(0, RECENT_QUERIES_LIMIT);
+  saveRecentQueries(state.recentQueries);
+  renderRecentChips();
+}
+
+function clearRecentQueries() {
+  state.recentQueries = [];
+  saveRecentQueries([]);
+  renderRecentChips();
+}
+
+function renderRecentChips() {
+  // Anchor recent chips at the end of the existing quick chips row, but keep
+  // the static suggestions intact so the "preset" chips never disappear.
+  if (!el.quickChips) return;
+  el.quickChips.querySelectorAll("[data-recent]").forEach((node) => node.remove());
+  const existingClear = el.quickChips.querySelector("[data-action='clear-recent']");
+  if (existingClear) existingClear.remove();
+
+  if (!state.recentQueries.length) return;
+
+  state.recentQueries.forEach((query) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "chip chip-recent";
+    button.dataset.recent = "1";
+    button.dataset.query = query;
+    button.title = query;
+    button.innerHTML = `<i data-lucide="history"></i><span>${query.length > 32 ? query.slice(0, 30) + "…" : query}</span>`;
+    el.quickChips.appendChild(button);
+  });
+
+  const clearBtn = document.createElement("button");
+  clearBtn.type = "button";
+  clearBtn.className = "chip chip-clear";
+  clearBtn.dataset.action = "clear-recent";
+  clearBtn.title = "Xoá lịch sử câu hỏi";
+  clearBtn.innerHTML = `<i data-lucide="x"></i><span>Xoá lịch sử</span>`;
+  el.quickChips.appendChild(clearBtn);
+
+  lucide.createIcons();
+}
+
 function bindEvents() {
   el.refreshBtn.addEventListener("click", () => loadDashboard(true));
   el.queryForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    await askQuestion(el.queryInput.value);
+    const value = el.queryInput.value;
+    rememberQuery(value);
+    await askQuestion(value);
   });
   el.quickChips.addEventListener("click", async (event) => {
+    const clearBtn = event.target.closest("[data-action='clear-recent']");
+    if (clearBtn) {
+      clearRecentQueries();
+      return;
+    }
     const button = event.target.closest("[data-query]");
     if (!button) return;
     const query = button.dataset.query || "";
     el.queryInput.value = query;
+    rememberQuery(query);
     await askQuestion(query);
   });
+  if (el.themeToggle) {
+    el.themeToggle.addEventListener("click", toggleTheme);
+  }
+  if (el.newsFilterInput) {
+    let debounceId = null;
+    el.newsFilterInput.addEventListener("input", (event) => {
+      const value = event.target.value;
+      if (debounceId) clearTimeout(debounceId);
+      debounceId = setTimeout(() => {
+        state.newsFilter = value;
+        renderNews(state.activeTopicData);
+      }, 80);
+    });
+  }
 }
 
 async function init() {
+  initTheme();
+  state.recentQueries = loadRecentQueries();
+  renderRecentChips();
   bindEvents();
   lucide.createIcons();
   await loadHealth();
