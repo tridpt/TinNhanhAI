@@ -38,10 +38,14 @@ def _short_prices_answer(prices_payload: dict[str, Any]) -> str:
         price_text = card.get("price_text") or "chưa có dữ liệu"
         change_text = card.get("change_text") or ""
         lines.append(f"- {label}: {price_text} {card.get('unit', '')} {change_text}".strip())
-    for card in prices_payload.get("vn_cards", []):
+    # Only show top 4 VN cards in fallback to keep the answer concise.
+    vn_cards = prices_payload.get("vn_cards", [])[:4]
+    for card in vn_cards:
         label = card.get("label", "")
         price_text = card.get("price_text") or "chưa có dữ liệu"
         lines.append(f"- {label}: {price_text} {card.get('unit', '')}".strip())
+    if len(prices_payload.get("vn_cards", [])) > 4:
+        lines.append(f"  (và {len(prices_payload['vn_cards']) - 4} loại vàng khác)")
     return "\n".join(lines)
 
 

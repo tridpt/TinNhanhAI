@@ -45,7 +45,9 @@ def _generate_gemini(
     temperature: float,
     max_output_tokens: int,
 ) -> str:
-    """Call Google Gemini generateContent endpoint."""
+    """Call Google Gemini generateContent endpoint with 1 retry on 429."""
+
+    import time
 
     model = config.GEMINI_MODEL
     url = (
@@ -63,13 +65,22 @@ def _generate_gemini(
             "maxOutputTokens": max_output_tokens,
         },
     }
-    try:
-        response = requests.post(url, json=payload, timeout=40)
-        response.raise_for_status()
-        data = response.json()
-        return _extract_gemini_text(data)
-    except Exception:
-        return ""
+    for attempt in range(2):
+        try:
+            response = requests.post(url, json=payload, timeout=40)
+            if response.status_code == 429 and attempt == 0:
+                # Rate limited — wait and retry once.
+                time.sleep(5)
+                continue
+            response.raise_for_status()
+            data = response.json()
+            return _extract_gemini_text(data)
+        except Exception:
+            if attempt == 0:
+                time.sleep(2)
+                continue
+            return ""
+    return ""
 
 
 def _extract_gemini_text(data: dict[str, Any]) -> str:
