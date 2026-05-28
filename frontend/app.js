@@ -228,29 +228,157 @@ function renderPrices(cards) {
 }
 
 function renderAnswer(data) {
-  const answer = data.answer || "Chưa có câu trả lời.";
   el.answerMeta.textContent = `${data.intent || "general"} · ${formatTime(data.generated_at)}`;
   el.answerBox.innerHTML = "";
 
-  const text = document.createElement("pre");
-  text.textContent = answer;
-  el.answerBox.appendChild(text);
+  const tabs = createAnswerTabs(data);
+  el.answerBox.appendChild(tabs);
+  lucide.createIcons();
+}
+
+function createAnswerTabs(data) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "answer-tabs";
 
   const sources = Array.isArray(data.sources) ? data.sources : [];
-  if (sources.length) {
-    const list = document.createElement("ul");
-    list.className = "answer-sources";
-    sources.slice(0, 6).forEach((source) => {
-      const node = el.sourceTemplate.content.firstElementChild.cloneNode(true);
-      const link = node.querySelector(".source-link");
-      link.textContent = source.title || source.domain || "Nguồn";
-      link.href = source.url || "#";
-      node.querySelector(".source-snippet").textContent = source.snippet || "";
-      list.appendChild(node);
-    });
-    el.answerBox.appendChild(list);
-  }
+  const sourceCount = sources.length;
+
+  const buttonsRow = document.createElement("div");
+  buttonsRow.className = "answer-tab-buttons";
+  buttonsRow.setAttribute("role", "tablist");
+
+  const panelsRow = document.createElement("div");
+  panelsRow.className = "answer-tab-panels";
+
+  const definitions = [
+    {
+      id: "summary",
+      label: "Tóm tắt",
+      icon: "sparkles",
+      build: () => buildSummaryPanel(data),
+    },
+    {
+      id: "sources",
+      label: `Nguồn${sourceCount ? ` (${sourceCount})` : ""}`,
+      icon: "link",
+      build: () => buildSourcesPanel(sources),
+    },
+    {
+      id: "raw",
+      label: "Raw",
+      icon: "code",
+      build: () => buildRawPanel(data),
+    },
+  ];
+
+  definitions.forEach((def, idx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `answer-tab${idx === 0 ? " active" : ""}`;
+    btn.setAttribute("role", "tab");
+    btn.dataset.tab = def.id;
+    btn.innerHTML = `<i data-lucide="${def.icon}"></i><span>${def.label}</span>`;
+    btn.addEventListener("click", () => activateTab(wrapper, def.id));
+    buttonsRow.appendChild(btn);
+
+    const panel = def.build();
+    panel.classList.add("answer-tab-panel");
+    panel.dataset.panel = def.id;
+    if (idx !== 0) panel.hidden = true;
+    panelsRow.appendChild(panel);
+  });
+
+  wrapper.appendChild(buttonsRow);
+  wrapper.appendChild(panelsRow);
+  return wrapper;
+}
+
+function activateTab(wrapper, id) {
+  wrapper.querySelectorAll(".answer-tab").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === id);
+  });
+  wrapper.querySelectorAll(".answer-tab-panel").forEach((panel) => {
+    panel.hidden = panel.dataset.panel !== id;
+  });
   lucide.createIcons();
+}
+
+function buildSummaryPanel(data) {
+  const panel = document.createElement("div");
+  const text = document.createElement("pre");
+  text.className = "answer-summary";
+  text.textContent = data.answer || "Chưa có câu trả lời.";
+  panel.appendChild(text);
+  return panel;
+}
+
+function buildSourcesPanel(sources) {
+  const panel = document.createElement("div");
+  if (!sources.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Chưa có nguồn cho câu trả lời này.";
+    panel.appendChild(empty);
+    return panel;
+  }
+  const list = document.createElement("ul");
+  list.className = "answer-sources";
+  sources.slice(0, 8).forEach((source) => {
+    const node = el.sourceTemplate.content.firstElementChild.cloneNode(true);
+    const link = node.querySelector(".source-link");
+    link.textContent = source.title || source.domain || "Nguồn";
+    link.href = source.url || "#";
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    node.querySelector(".source-snippet").textContent = source.snippet || "";
+    list.appendChild(node);
+  });
+  panel.appendChild(list);
+  return panel;
+}
+
+function buildRawPanel(data) {
+  const panel = document.createElement("div");
+  panel.className = "answer-raw";
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "answer-raw-toolbar";
+
+  const copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.className = "chip";
+  copyBtn.innerHTML = `<i data-lucide="copy"></i><span>Sao chép JSON</span>`;
+  toolbar.appendChild(copyBtn);
+
+  const status = document.createElement("span");
+  status.className = "answer-raw-status muted";
+  toolbar.appendChild(status);
+
+  const pre = document.createElement("pre");
+  pre.className = "answer-raw-body";
+  let pretty;
+  try {
+    pretty = JSON.stringify(data, null, 2);
+  } catch (error) {
+    pretty = String(data);
+  }
+  pre.textContent = pretty;
+
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(pretty);
+      status.textContent = "Đã chép vào clipboard.";
+    } catch (error) {
+      status.textContent = "Trình duyệt chặn clipboard, hãy chọn thủ công.";
+    }
+    setTimeout(() => {
+      status.textContent = "";
+    }, 2500);
+  });
+
+  panel.appendChild(toolbar);
+  panel.appendChild(pre);
+  return panel;
 }
 
 function updateMetrics(dashboard) {

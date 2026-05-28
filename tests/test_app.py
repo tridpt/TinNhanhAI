@@ -112,6 +112,8 @@ def test_service_worker_endpoint(flask_client):
     body = response.data.decode("utf-8")
     assert "tinnhanh-v" in body
     assert "fetch" in body  # the SW exports a fetch listener
+    # Cache-Control should let the browser pick up new versions quickly.
+    assert "no-cache" in response.headers.get("Cache-Control", "")
 
 
 def test_icons_endpoint(flask_client):

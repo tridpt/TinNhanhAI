@@ -652,3 +652,93 @@ button {
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.7);
 }
+
+
+.answer-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.answer-tab-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+
+.answer-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.answer-tab i {
+  width: 14px;
+  height: 14px;
+}
+
+.answer-tab:hover {
+  color: var(--text);
+  border-color: rgba(15, 118, 110, 0.25);
+}
+
+.answer-tab.active {
+  border-color: rgba(15, 118, 110, 0.35);
+  background: rgba(15, 118, 110, 0.08);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.answer-tab-panels {
+  min-height: 60px;
+}
+
+.answer-summary {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  font-family: inherit;
+}
+
+.answer-raw {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.answer-raw-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.answer-raw-status {
+  font-size: 0.78rem;
+}
+
+.answer-raw-body {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre;
+}

@@ -5,7 +5,7 @@ Web app tiếng Việt:
 - tóm tắt tin nóng theo chủ đề (thời sự, kinh tế, công nghệ, thế giới, thể thao)
 - bảng giá thị trường: vàng/dầu/xăng quốc tế **và** vàng SJC, USD/VND, xăng Petrolimex
 - lịch sử giá 7 ngày (sparkline mini-chart) tự thu thập qua mỗi lần fetch
-- hỏi nhanh AI: tin tức, giá hàng hóa hoặc tra cứu giá sản phẩm
+- hỏi nhanh AI: tin tức, giá hàng hóa hoặc tra cứu giá sản phẩm, kết quả chia 3 tab (Tóm tắt / Nguồn / Raw JSON)
 - (tùy chọn) gửi alert Telegram khi có tin chứa từ khóa bạn theo dõi
 - PWA: cài được như app trên điện thoại (manifest + service worker, hoạt động cả khi offline ở mức shell)
 
