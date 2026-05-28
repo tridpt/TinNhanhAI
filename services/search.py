@@ -16,7 +16,9 @@ from .cache import TTLCache
 
 CACHE = TTLCache(namespace="search")
 USER_AGENT = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TinNhanhAI/1.0"}
-PRICE_DOMAIN_ALLOWLIST = ("didongviet.vn", "viettelstore.vn")
+# Build the allowlist from the same retailer config the UI advertises so adding
+# a site in one place doesn't silently leave it filtered out here.
+PRICE_DOMAIN_ALLOWLIST = tuple(item["domain"] for item in config.RETAIL_SEARCH_SITES)
 PRICE_KEYWORDS = {
     "gia",
     "bao nhieu",

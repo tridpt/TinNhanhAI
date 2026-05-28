@@ -88,6 +88,8 @@ def dashboard():
 
 @app.get("/api/news/<topic>")
 def news_topic(topic: str):
+    if topic not in config.NEWS_TOPIC_META:
+        return jsonify({"error": "unknown_topic", "topic": topic}), 404
     force = request.args.get("force", "0").lower() in {"1", "true", "yes"}
     return jsonify(get_topic_payload(topic, force=force))
 

@@ -131,3 +131,28 @@ def test_get_history_downsamples_large_series(isolated_history):
 
     points = h.get_history("dense", days=7, limit=50)
     assert len(points) == 50
+
+
+
+def test_record_price_triggers_prune_when_sampled(isolated_history, monkeypatch):
+    """Force the sampling RNG to fire so the prune branch is exercised."""
+
+    h = isolated_history
+    monkeypatch.setattr(h.random, "random", lambda: 0.0)
+
+    calls = []
+    monkeypatch.setattr(h, "prune", lambda days: calls.append(days) or 0)
+
+    assert h.record_price("oil", 90.0) is True
+    assert calls == [h._RETENTION_DAYS]
+
+
+def test_record_price_skips_prune_when_not_sampled(isolated_history, monkeypatch):
+    h = isolated_history
+    monkeypatch.setattr(h.random, "random", lambda: 0.999999)
+
+    calls = []
+    monkeypatch.setattr(h, "prune", lambda days: calls.append(days) or 0)
+
+    assert h.record_price("oil", 90.0) is True
+    assert calls == []

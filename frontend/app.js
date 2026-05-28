@@ -455,10 +455,15 @@ async function loadDashboard(force = false) {
   el.refreshBtn.disabled = true;
   try {
     const response = await fetch(`/api/dashboard${force ? "?force=1" : ""}`);
-    if (!response.ok) {
-      throw new Error(`Dashboard failed: ${response.status}`);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.error) {
+      const offline = data?.error === "offline";
+      setHealth(offline ? "Offline" : "Không tải được dữ liệu", offline ? "warn" : "err");
+      el.briefText.textContent = offline
+        ? "Bạn đang offline. Hiển thị dữ liệu đã lưu trước đó (nếu có)."
+        : "Không tải được dữ liệu. Hãy thử làm mới lại.";
+      return;
     }
-    const data = await response.json();
     renderDashboard(data);
   } catch (error) {
     console.error(error);
@@ -482,15 +487,33 @@ async function askQuestion(question) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question }),
     });
-    if (!response.ok) {
-      throw new Error(`Ask failed: ${response.status}`);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.error) {
+      const isRateLimited = response.status === 429 || data?.error === "rate_limited";
+      const isOffline = data?.error === "offline";
+      const message = data?.message
+        || (isRateLimited
+          ? `Bạn gửi quá nhanh, hãy chờ ${data?.retry_after ?? 30}s rồi thử lại.`
+          : isOffline
+            ? "Bạn đang offline. Đang dùng dữ liệu đã lưu."
+            : `Yêu cầu không thành công (HTTP ${response.status}).`);
+      el.answerMeta.textContent = isRateLimited
+        ? "Đã giới hạn"
+        : isOffline
+          ? "Offline"
+          : "Lỗi";
+      el.answerBox.innerHTML = "";
+      const note = document.createElement("p");
+      note.className = isOffline ? "muted" : "answer-error";
+      note.textContent = message;
+      el.answerBox.appendChild(note);
+      return;
     }
-    const data = await response.json();
     renderAnswer(data);
   } catch (error) {
     console.error(error);
     el.answerMeta.textContent = "Lỗi";
-    el.answerBox.innerHTML = `<p class="muted">Không trả lời được câu hỏi này.</p>`;
+    el.answerBox.innerHTML = `<p class="answer-error">Không kết nối được tới máy chủ.</p>`;
   } finally {
     state.loadingQuestion = false;
   }

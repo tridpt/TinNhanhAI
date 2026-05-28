@@ -7,10 +7,16 @@ keeps everything in ``data/history.db`` which is gitignored.
 Writes are throttled by :data:`_MIN_INTERVAL_SECONDS`: a metric can record
 at most one point per ~4 minutes, which prevents duplicates when the user
 mashes the refresh button or when waitress workers race on startup.
+
+Old rows are automatically pruned: every successful insert has a small
+probability (:data:`_PRUNE_PROBABILITY`) of triggering a background
+``DELETE FROM price_history WHERE ts < cutoff`` so the database never
+needs an external cron job.
 """
 
 from __future__ import annotations
 
+import random
 import sqlite3
 import threading
 import time
@@ -21,6 +27,11 @@ DB_PATH = Path(__file__).resolve().parent.parent / "data" / "history.db"
 
 _LOCK = threading.Lock()
 _MIN_INTERVAL_SECONDS = 240
+_RETENTION_DAYS = 60
+# Probability per successful insert that we kick off a background prune.
+# 1/200 ≈ once every ~14 hours given the throttled write rate, which is
+# plenty to keep the SQLite file from growing unbounded over months.
+_PRUNE_PROBABILITY = 1 / 200
 
 
 def _open() -> sqlite3.Connection:
@@ -62,6 +73,7 @@ def record_price(key: str, value: float | None, *, label: str = "") -> bool:
 
     now = int(time.time())
     cutoff = now - _MIN_INTERVAL_SECONDS
+    inserted = False
 
     with _LOCK:
         conn = _open()
@@ -77,9 +89,17 @@ def record_price(key: str, value: float | None, *, label: str = "") -> bool:
                 " VALUES (?, ?, ?, ?)",
                 (key, now, numeric, label or ""),
             )
-            return True
+            inserted = True
         finally:
             conn.close()
+
+    if inserted and random.random() < _PRUNE_PROBABILITY:
+        # Best-effort: never raise from a sampling-based maintenance hook.
+        try:
+            prune(_RETENTION_DAYS)
+        except Exception:  # pragma: no cover - defensive
+            pass
+    return inserted
 
 
 def get_history(key: str, *, days: int = 7, limit: int = 200) -> list[dict[str, Any]]:

@@ -70,3 +70,15 @@ def test_detect_intent_picks_news_topic(question, topic):
 )
 def test_is_plausible_price(value, currency, expected):
     assert _is_plausible_price(value, currency) is expected
+
+
+
+def test_price_domain_allowlist_matches_config():
+    """Adding a retailer to config.RETAIL_SEARCH_SITES must not orphan the search filter."""
+
+    import config
+    from services.search import PRICE_DOMAIN_ALLOWLIST
+
+    expected = tuple(item["domain"] for item in config.RETAIL_SEARCH_SITES)
+    assert set(PRICE_DOMAIN_ALLOWLIST) == set(expected)
+    assert len(PRICE_DOMAIN_ALLOWLIST) == len(config.RETAIL_SEARCH_SITES)

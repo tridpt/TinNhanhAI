@@ -742,3 +742,14 @@ button {
   overflow: auto;
   white-space: pre;
 }
+
+
+.answer-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  background: rgba(220, 38, 38, 0.06);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+}

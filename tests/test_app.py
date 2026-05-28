@@ -120,3 +120,34 @@ def test_icons_endpoint(flask_client):
     response = flask_client.get("/icons/icon.svg")
     assert response.status_code == 200
     assert "svg" in response.headers["Content-Type"]
+
+
+
+def test_news_topic_returns_404_for_unknown_topic(flask_client):
+    response = flask_client.get("/api/news/banana")
+
+    assert response.status_code == 404
+    payload = response.get_json()
+    assert payload["error"] == "unknown_topic"
+    assert payload["topic"] == "banana"
+
+
+def test_news_topic_accepts_known_topic(flask_client, monkeypatch):
+    """Smoke check that valid topics still hit the payload builder."""
+
+    from services import news as news_module
+
+    monkeypatch.setattr(
+        news_module,
+        "get_topic_payload",
+        lambda topic, *, force=False: {"key": topic, "items": [], "label": "stub"},
+    )
+    # The view imports the symbol at module load via ``from services import``
+    # so we need to patch the binding the view actually sees.
+    import app as flask_app
+
+    monkeypatch.setattr(flask_app, "get_topic_payload", news_module.get_topic_payload)
+
+    response = flask_client.get("/api/news/all")
+    assert response.status_code == 200
+    assert response.get_json()["key"] == "all"
