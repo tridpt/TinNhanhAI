@@ -490,10 +490,20 @@ function renderPrices(cards) {
     node.querySelector(".price-updated").textContent = card.updated_at
       ? `Cập nhật: ${card.updated_at}`
       : "Cập nhật: chưa rõ";
-    renderSparkline(node.querySelector(".price-spark"), card.history, {
-      formatTick: (value) => fmtNumber(value, card.precision ?? 2),
-      label: card.label || card.key || "",
+    // Store history data for chart modal; don't render inline sparkline.
+    const chartBtn = document.createElement("button");
+    chartBtn.type = "button";
+    chartBtn.className = "chart-open-btn";
+    chartBtn.title = "Xem biểu đồ";
+    chartBtn.innerHTML = `<i data-lucide="line-chart"></i>`;
+    chartBtn.addEventListener("click", () => {
+      openDetailChart(card.label || card.key || "", card.history || [], {
+        formatTick: (value) => fmtNumber(value, card.precision ?? 2),
+      });
     });
+    if (card.history && card.history.length >= 2) {
+      node.appendChild(chartBtn);
+    }
     el.priceList.appendChild(node);
   });
   lucide.createIcons();
@@ -676,12 +686,18 @@ function renderMarketCards(container, cards, options = {}) {
       <div class="market-spark"></div>
     `;
     container.appendChild(node);
-    if (options.showSparkline && card.history && card.history.length >= 2) {
-      const sparkContainer = node.querySelector(".market-spark");
-      renderSparkline(sparkContainer, card.history, {
-        formatTick: (value) => Number(value).toLocaleString("vi-VN", { maximumFractionDigits: 2 }),
-        label: card.label || card.key || "",
+    if (card.history && card.history.length >= 2) {
+      const chartBtn = document.createElement("button");
+      chartBtn.type = "button";
+      chartBtn.className = "chart-open-btn";
+      chartBtn.title = "Xem biểu đồ";
+      chartBtn.innerHTML = `<i data-lucide="line-chart"></i>`;
+      chartBtn.addEventListener("click", () => {
+        openDetailChart(card.label || card.key || "", card.history, {
+          formatTick: (value) => Number(value).toLocaleString("vi-VN", { maximumFractionDigits: 2 }),
+        });
       });
+      node.appendChild(chartBtn);
     }
   });
   lucide.createIcons();
@@ -873,10 +889,19 @@ function renderVnPrices(cards) {
     node.querySelector(".price-updated").textContent = card.updated_label
       ? `Cập nhật: ${card.updated_label}`
       : "Cập nhật: chưa rõ";
-    renderSparkline(node.querySelector(".price-spark"), card.history, {
-      formatTick: (value) => Number(value).toLocaleString("vi-VN"),
-      label: card.label || card.key || "",
+    const chartBtn = document.createElement("button");
+    chartBtn.type = "button";
+    chartBtn.className = "chart-open-btn";
+    chartBtn.title = "Xem biểu đồ";
+    chartBtn.innerHTML = `<i data-lucide="line-chart"></i>`;
+    chartBtn.addEventListener("click", () => {
+      openDetailChart(card.label || card.key || "", card.history || [], {
+        formatTick: (value) => Number(value).toLocaleString("vi-VN"),
+      });
     });
+    if (card.history && card.history.length >= 2) {
+      node.appendChild(chartBtn);
+    }
     el.vnPriceList.appendChild(node);
   });
   lucide.createIcons();

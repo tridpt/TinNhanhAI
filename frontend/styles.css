@@ -680,11 +680,11 @@ button {
 
 
 .price-spark {
-  margin: 8px 0 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-height: 20px;
+  display: none;
+}
+
+.market-spark {
+  display: none;
 }
 
 .price-spark .spark-svg {
@@ -1257,11 +1257,6 @@ html[data-theme="dark"] #bookmarks-toggle.active {
   margin-top: 1px;
   font-size: 0.72rem;
   color: var(--muted);
-}
-
-.market-spark {
-  margin-top: 8px;
-  min-height: 0;
 }
 
 /* Weather cards */
@@ -2050,4 +2045,45 @@ html[data-theme="dark"] .chart-backdrop {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
+}
+
+
+/* Chart open button on price/market cards */
+.chart-open-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  z-index: 2;
+}
+
+.chart-open-btn:hover {
+  background: rgba(15, 118, 110, 0.08);
+  border-color: rgba(15, 118, 110, 0.4);
+  transform: scale(1.05);
+}
+
+.chart-open-btn i {
+  width: 15px;
+  height: 15px;
+}
+
+.price-card,
+.market-card {
+  position: relative;
+}
+
+html[data-theme="dark"] .chart-open-btn:hover {
+  background: rgba(45, 212, 191, 0.12);
+  border-color: rgba(45, 212, 191, 0.45);
 }
