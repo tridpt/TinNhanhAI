@@ -104,7 +104,7 @@ def _dedupe_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return deduped
 
 
-def _collect_topic_items(topic_key: str, limit: int = 6) -> list[dict[str, Any]]:
+def _collect_topic_items(topic_key: str, limit: int = 15) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     for source in _topic_sources(topic_key):
         try:
@@ -167,9 +167,9 @@ def get_topic_payload(topic_key: str, *, force: bool = False) -> dict[str, Any]:
             if key == "all":
                 continue
             collected.extend(_collect_topic_items(key))
-        items = _dedupe_items(collected)[:8]
+        items = _dedupe_items(collected)[:20]
     else:
-        items = _collect_topic_items(topic_key)[:8]
+        items = _collect_topic_items(topic_key)[:20]
 
     payload = {
         "key": topic_key,
