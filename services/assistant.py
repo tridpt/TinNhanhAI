@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-import config
 from .ai import compact_json, generate_text
 from .news import get_topic_payload
 from .prices import get_prices_payload
 from .search import detect_intent, search_general_web, search_product_prices, summarize_search
-
 
 LOCAL_TZ = timezone(timedelta(hours=7))
 
@@ -41,6 +38,10 @@ def _short_prices_answer(prices_payload: dict[str, Any]) -> str:
         price_text = card.get("price_text") or "chưa có dữ liệu"
         change_text = card.get("change_text") or ""
         lines.append(f"- {label}: {price_text} {card.get('unit', '')} {change_text}".strip())
+    for card in prices_payload.get("vn_cards", []):
+        label = card.get("label", "")
+        price_text = card.get("price_text") or "chưa có dữ liệu"
+        lines.append(f"- {label}: {price_text} {card.get('unit', '')}".strip())
     return "\n".join(lines)
 
 
@@ -115,23 +116,37 @@ def answer_question(question: str) -> dict[str, Any]:
         fallback = _short_prices_answer(prices_payload)
         answer = _build_ai_answer(
             question,
-            {"prices": prices_payload.get("cards", []), "intent": intent},
+            {
+                "prices": prices_payload.get("cards", []),
+                "vn_prices": prices_payload.get("vn_cards", []),
+                "intent": intent,
+            },
             fallback,
         )
+        sources = [
+            {
+                "title": card.get("label", ""),
+                "url": str(card.get("source_url") or ""),
+                "domain": "finance.yahoo.com",
+                "snippet": f"{card.get('symbol', '')} {card.get('price_text', '')} {card.get('change_text', '')}".strip(),
+            }
+            for card in prices_payload.get("cards", [])
+        ]
+        for card in prices_payload.get("vn_cards", []):
+            sources.append(
+                {
+                    "title": card.get("label", ""),
+                    "url": str(card.get("source_url") or ""),
+                    "domain": str(card.get("source_url") or "").replace("https://", "").split("/")[0],
+                    "snippet": str(card.get("price_text") or ""),
+                }
+            )
         return {
             "intent": intent,
             "topic": "",
             "answer": answer,
-            "sources": [
-                {
-                    "title": card.get("label", ""),
-                    "url": str(card.get("source_url") or ""),
-                    "domain": "finance.yahoo.com",
-                    "snippet": f"{card.get('symbol', '')} {card.get('price_text', '')} {card.get('change_text', '')}".strip(),
-                }
-                for card in prices_payload.get("cards", [])
-            ],
-            "results": prices_payload.get("cards", []),
+            "sources": sources,
+            "results": prices_payload.get("cards", []) + prices_payload.get("vn_cards", []),
             "generated_at": datetime.now(LOCAL_TZ).isoformat(),
         }
 

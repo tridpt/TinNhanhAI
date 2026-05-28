@@ -24,6 +24,7 @@ const el = {
   topicTabs: document.getElementById("topic-tabs"),
   newsList: document.getElementById("news-list"),
   priceList: document.getElementById("price-list"),
+  vnPriceList: document.getElementById("vn-price-list"),
   briefText: document.getElementById("brief-text"),
   answerBox: document.getElementById("answer-box"),
   answerMeta: document.getElementById("answer-meta"),
@@ -33,6 +34,7 @@ const el = {
   metricUpdated: document.getElementById("metric-updated"),
   newsTemplate: document.getElementById("news-item-template"),
   priceTemplate: document.getElementById("price-item-template"),
+  vnPriceTemplate: document.getElementById("vn-price-item-template"),
   sourceTemplate: document.getElementById("source-item-template"),
 };
 
@@ -189,6 +191,29 @@ function updateMetrics(dashboard) {
   el.briefText.textContent = dashboard.brief || "Chưa có bản tóm tắt.";
 }
 
+function renderVnPrices(cards) {
+  if (!el.vnPriceList) return;
+  el.vnPriceList.innerHTML = "";
+  if (!cards || !cards.length) {
+    el.vnPriceList.innerHTML = `<div class="empty-state">Chưa lấy được giá Việt Nam.</div>`;
+    return;
+  }
+  cards.forEach((card) => {
+    const node = el.vnPriceTemplate.content.firstElementChild.cloneNode(true);
+    const icon = node.querySelector(".price-icon i");
+    icon.setAttribute("data-lucide", card.icon || "circle-dollar-sign");
+    node.querySelector(".price-label").textContent = card.label || "";
+    node.querySelector(".price-symbol").textContent = card.unit || "";
+    node.querySelector(".price-value").textContent = card.price_text || "Chưa có dữ liệu";
+    node.querySelector(".price-unit").textContent = "";
+    node.querySelector(".price-updated").textContent = card.updated_label
+      ? `Cập nhật: ${card.updated_label}`
+      : "Cập nhật: chưa rõ";
+    el.vnPriceList.appendChild(node);
+  });
+  lucide.createIcons();
+}
+
 function renderDashboard(dashboard) {
   state.dashboard = dashboard;
   updateMetrics(dashboard);
@@ -197,6 +222,7 @@ function renderDashboard(dashboard) {
   const active = topics.find((topic) => topic.key === state.activeTopic) || topics.find((topic) => topic.key === "all");
   renderNews(active);
   renderPrices(dashboard.prices?.cards || []);
+  renderVnPrices(dashboard.prices?.vn_cards || []);
   setHealth(state.aiEnabled ? "AI sẵn sàng" : "AI tắt", state.aiEnabled ? "ok" : "warn");
   lucide.createIcons();
 }

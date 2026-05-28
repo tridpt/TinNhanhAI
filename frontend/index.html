@@ -97,10 +97,14 @@
           <div class="panel-head">
             <div>
               <h2>Giá thị trường</h2>
-              <p>Vàng, dầu, xăng theo thị trường quốc tế.</p>
+              <p>Vàng, dầu, xăng theo thị trường quốc tế và Việt Nam.</p>
             </div>
           </div>
           <div id="price-list" class="price-list"></div>
+          <div class="vn-prices-section">
+            <h3 class="vn-prices-title">Giá tại Việt Nam</h3>
+            <div id="vn-price-list" class="price-list price-list-vn"></div>
+          </div>
         </aside>
       </div>
     </section>
@@ -144,6 +148,23 @@
         <span class="price-unit"></span>
       </div>
       <p class="price-change"></p>
+      <p class="price-updated"></p>
+    </article>
+  </template>
+
+  <template id="vn-price-item-template">
+    <article class="price-card price-card-vn">
+      <div class="price-card-head">
+        <span class="price-icon"><i></i></span>
+        <div>
+          <h3 class="price-label"></h3>
+          <p class="price-symbol"></p>
+        </div>
+      </div>
+      <div class="price-main">
+        <strong class="price-value"></strong>
+        <span class="price-unit"></span>
+      </div>
       <p class="price-updated"></p>
     </article>
   </template>
