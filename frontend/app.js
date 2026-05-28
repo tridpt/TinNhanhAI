@@ -1525,6 +1525,9 @@ function bindVisibilityHandlers() {
     }, { passive: true });
     scrollBtn.addEventListener("click", () => {
       window.scrollTo({ top: 0, behavior: "smooth" });
+      // Fallback for browsers/contexts where window.scrollTo doesn't work.
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
     });
   }
 }
