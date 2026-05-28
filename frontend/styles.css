@@ -865,3 +865,140 @@ button {
 .chip.chip-clear:hover {
   background: rgba(220, 38, 38, 0.06);
 }
+
+
+/* Bookmark button on news cards */
+.bookmark-btn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.bookmark-btn:hover {
+  color: var(--accent);
+  border-color: rgba(15, 118, 110, 0.4);
+}
+
+.bookmark-btn.active {
+  color: var(--accent);
+  background: rgba(15, 118, 110, 0.08);
+  border-color: rgba(15, 118, 110, 0.4);
+}
+
+.bookmark-btn.active i {
+  fill: var(--accent);
+}
+
+.bookmark-btn i {
+  width: 15px;
+  height: 15px;
+}
+
+#bookmarks-toggle.active {
+  border-color: rgba(15, 118, 110, 0.4);
+  color: var(--accent);
+  background: rgba(15, 118, 110, 0.08);
+}
+
+.bookmarks-count {
+  display: inline-block;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+#bookmarks-toggle:not(.active) .bookmarks-count {
+  background: var(--muted);
+}
+
+/* VN gold compare chart */
+.vn-gold-compare {
+  margin-bottom: 14px;
+}
+
+.compare-chart {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 14px 16px;
+}
+
+.compare-chart-head h4 {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.compare-svg {
+  width: 100%;
+  height: 160px;
+  display: block;
+}
+
+.compare-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 0.78rem;
+}
+
+.compare-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compare-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.compare-label {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.compare-value {
+  color: var(--muted);
+}
+
+.compare-meta {
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+/* Dark mode tweaks */
+html[data-theme="dark"] .bookmark-btn:hover {
+  border-color: rgba(45, 212, 191, 0.45);
+}
+
+html[data-theme="dark"] .bookmark-btn.active {
+  background: rgba(45, 212, 191, 0.12);
+  border-color: rgba(45, 212, 191, 0.45);
+}
+
+html[data-theme="dark"] #bookmarks-toggle.active {
+  background: rgba(45, 212, 191, 0.12);
+  border-color: rgba(45, 212, 191, 0.45);
+}

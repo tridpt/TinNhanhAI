@@ -3,9 +3,11 @@ const state = {
   activeTopic: "all",
   activeTopicData: null,
   newsFilter: "",
+  showOnlyBookmarks: false,
   loadingQuestion: false,
   aiEnabled: false,
   recentQueries: [],
+  bookmarks: new Set(),
 };
 
 const topicOrder = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao"];
@@ -23,8 +25,10 @@ const topicMeta = {
 const LS_KEYS = {
   theme: "tnai.theme",
   recentQueries: "tnai.recent",
+  bookmarks: "tnai.bookmarks",
 };
 const RECENT_QUERIES_LIMIT = 8;
+const BOOKMARK_LIMIT = 200;
 
 const el = {
   healthPill: document.getElementById("health-pill"),
@@ -37,8 +41,12 @@ const el = {
   newsList: document.getElementById("news-list"),
   newsFilterInput: document.getElementById("news-filter-input"),
   newsFilterStats: document.getElementById("news-filter-stats"),
+  bookmarksToggle: document.getElementById("bookmarks-toggle"),
+  bookmarksCount: document.getElementById("bookmarks-count"),
   priceList: document.getElementById("price-list"),
   vnPriceList: document.getElementById("vn-price-list"),
+  vnGoldCompare: document.getElementById("vn-gold-compare"),
+  exportPricesBtn: document.getElementById("export-prices-btn"),
   briefText: document.getElementById("brief-text"),
   answerBox: document.getElementById("answer-box"),
   answerMeta: document.getElementById("answer-meta"),
@@ -137,23 +145,26 @@ function renderNews(topic) {
   const items = topic.items || [];
   const filterRaw = (state.newsFilter || "").trim();
   const filter = stripVnAccents(filterRaw);
-  const filtered = filter
-    ? items.filter((item) => {
-        const haystack = stripVnAccents(
-          `${item.title || ""} ${item.summary || ""} ${item.source || ""}`,
-        );
-        return haystack.includes(filter);
-      })
-    : items;
+  const onlyBookmarked = state.showOnlyBookmarks;
+
+  const filtered = items.filter((item) => {
+    if (onlyBookmarked && !state.bookmarks.has(item.url)) return false;
+    if (!filter) return true;
+    const haystack = stripVnAccents(
+      `${item.title || ""} ${item.summary || ""} ${item.source || ""}`,
+    );
+    return haystack.includes(filter);
+  });
 
   if (el.newsFilterStats) {
-    if (!filterRaw) {
-      el.newsFilterStats.textContent = items.length
-        ? `${items.length} bài`
-        : "";
-    } else {
-      el.newsFilterStats.textContent = `${filtered.length}/${items.length} bài khớp`;
+    const parts = [];
+    if (filterRaw || onlyBookmarked) {
+      parts.push(`${filtered.length}/${items.length} bài`);
+    } else if (items.length) {
+      parts.push(`${items.length} bài`);
     }
+    if (onlyBookmarked) parts.push("đã lưu");
+    el.newsFilterStats.textContent = parts.join(" · ");
   }
 
   if (!items.length) {
@@ -161,7 +172,10 @@ function renderNews(topic) {
     return;
   }
   if (!filtered.length) {
-    el.newsList.innerHTML = `<div class="empty-state">Không có bài nào khớp từ khóa "${filterRaw}".</div>`;
+    const msg = onlyBookmarked
+      ? "Chưa có tin nào được lưu trong chủ đề này."
+      : `Không có bài nào khớp từ khóa "${filterRaw}".`;
+    el.newsList.innerHTML = `<div class="empty-state">${msg}</div>`;
     return;
   }
 
@@ -174,6 +188,19 @@ function renderNews(topic) {
     link.textContent = item.title || "";
     link.href = item.url || "#";
     node.querySelector(".news-summary").textContent = item.summary || "Không có mô tả.";
+
+    const bookmarkBtn = node.querySelector(".bookmark-btn");
+    if (bookmarkBtn) {
+      const isSaved = state.bookmarks.has(item.url);
+      bookmarkBtn.classList.toggle("active", isSaved);
+      bookmarkBtn.title = isSaved ? "Bỏ lưu tin" : "Lưu tin";
+      bookmarkBtn.setAttribute("aria-pressed", String(isSaved));
+      bookmarkBtn.dataset.url = item.url || "";
+      bookmarkBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        toggleBookmark(item);
+      });
+    }
     el.newsList.appendChild(node);
   });
 }
@@ -480,6 +507,7 @@ function renderDashboard(dashboard) {
   renderNews(active);
   renderPrices(dashboard.prices?.cards || []);
   renderVnPrices(dashboard.prices?.vn_cards || []);
+  renderGoldCompare(dashboard.prices?.vn_cards || []);
   setHealth(state.aiEnabled ? "AI sẵn sàng" : "AI tắt", state.aiEnabled ? "ok" : "warn");
   lucide.createIcons();
 }
@@ -683,7 +711,209 @@ function renderRecentChips() {
   lucide.createIcons();
 }
 
-function bindEvents() {
+// --- Bookmarks ---------------------------------------------------------------
+
+function loadBookmarks() {
+  try {
+    const raw = localStorage.getItem(LS_KEYS.bookmarks);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.slice(0, BOOKMARK_LIMIT).filter((url) => typeof url === "string"));
+  } catch (error) {
+    return new Set();
+  }
+}
+
+function saveBookmarks() {
+  try {
+    localStorage.setItem(
+      LS_KEYS.bookmarks,
+      JSON.stringify([...state.bookmarks].slice(0, BOOKMARK_LIMIT)),
+    );
+  } catch (error) {
+    /* quota / private mode — keep state in memory at least */
+  }
+}
+
+function toggleBookmark(item) {
+  if (!item || !item.url) return;
+  if (state.bookmarks.has(item.url)) {
+    state.bookmarks.delete(item.url);
+  } else {
+    state.bookmarks.add(item.url);
+  }
+  saveBookmarks();
+  refreshBookmarksButton();
+  renderNews(state.activeTopicData);
+}
+
+function refreshBookmarksButton() {
+  if (!el.bookmarksToggle) return;
+  el.bookmarksToggle.classList.toggle("active", state.showOnlyBookmarks);
+  el.bookmarksToggle.setAttribute("aria-pressed", String(state.showOnlyBookmarks));
+  if (el.bookmarksCount) {
+    el.bookmarksCount.textContent = String(state.bookmarks.size);
+    el.bookmarksCount.style.display = state.bookmarks.size ? "" : "none";
+  }
+}
+
+// --- VN gold compare chart ---------------------------------------------------
+
+const COMPARE_PALETTE = ["#0f766e", "#2563eb", "#b45309", "#7c3aed", "#15803d", "#db2777"];
+
+function renderGoldCompare(cards) {
+  if (!el.vnGoldCompare) return;
+  el.vnGoldCompare.innerHTML = "";
+
+  const goldCards = (cards || []).filter(
+    (card) => (card.key || "").startsWith("vn_gold_") && Array.isArray(card.history) && card.history.length >= 2,
+  );
+
+  if (goldCards.length < 2) {
+    // We need at least two providers with enough datapoints to make the comparison
+    // meaningful; otherwise the regular per-card sparkline is already enough.
+    return;
+  }
+
+  const allValues = goldCards.flatMap((card) => card.history.map((p) => Number(p.value)));
+  const min = Math.min(...allValues);
+  const max = Math.max(...allValues);
+  const span = max - min || Math.abs(max) * 0.001 || 1;
+
+  const allTimestamps = goldCards.flatMap((card) => card.history.map((p) => Number(p.ts)));
+  const tsMin = Math.min(...allTimestamps);
+  const tsMax = Math.max(...allTimestamps);
+  const tsSpan = tsMax - tsMin || 1;
+
+  const width = 640;
+  const height = 160;
+  const padX = 8;
+  const padY = 14;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "compare-chart";
+
+  const header = document.createElement("div");
+  header.className = "compare-chart-head";
+  header.innerHTML = `<h4>So sánh giá vàng Việt Nam (7 ngày)</h4>`;
+  wrapper.appendChild(header);
+
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.classList.add("compare-svg");
+
+  goldCards.forEach((card, idx) => {
+    const stroke = COMPARE_PALETTE[idx % COMPARE_PALETTE.length];
+    const path = document.createElementNS(svgNS, "path");
+    const d = card.history
+      .map((point, pIdx) => {
+        const x = padX + ((Number(point.ts) - tsMin) / tsSpan) * (width - padX * 2);
+        const y = padY + (height - padY * 2) * (1 - (Number(point.value) - min) / span);
+        return `${pIdx === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+      })
+      .join(" ");
+    path.setAttribute("d", d);
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", stroke);
+    path.setAttribute("stroke-width", "1.8");
+    path.setAttribute("stroke-linejoin", "round");
+    path.setAttribute("stroke-linecap", "round");
+    svg.appendChild(path);
+  });
+
+  wrapper.appendChild(svg);
+
+  const legend = document.createElement("div");
+  legend.className = "compare-legend";
+  goldCards.forEach((card, idx) => {
+    const stroke = COMPARE_PALETTE[idx % COMPARE_PALETTE.length];
+    const last = card.history[card.history.length - 1];
+    const value = last ? Number(last.value) : null;
+    const item = document.createElement("span");
+    item.className = "compare-legend-item";
+    item.innerHTML = `
+      <span class="compare-swatch" style="background:${stroke}"></span>
+      <span class="compare-label">${card.label}</span>
+      <span class="compare-value">${value ? value.toLocaleString("vi-VN") : "-"}</span>
+    `;
+    legend.appendChild(item);
+  });
+  wrapper.appendChild(legend);
+
+  const meta = document.createElement("div");
+  meta.className = "compare-meta";
+  const minLabel = min.toLocaleString("vi-VN");
+  const maxLabel = max.toLocaleString("vi-VN");
+  meta.textContent = `${minLabel} – ${maxLabel} VND/lượng`;
+  wrapper.appendChild(meta);
+
+  el.vnGoldCompare.appendChild(wrapper);
+}
+
+// --- CSV export --------------------------------------------------------------
+
+function csvEscape(value) {
+  const text = value === null || value === undefined ? "" : String(value);
+  if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+function downloadCsv(filename, rows) {
+  // BOM lets Excel auto-detect UTF-8 instead of mangling Vietnamese diacritics.
+  const csv = "\ufeff" + rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    a.remove();
+  }, 0);
+}
+
+function exportPricesCsv() {
+  const dashboard = state.dashboard;
+  if (!dashboard) return;
+  const intl = dashboard.prices?.cards || [];
+  const vn = dashboard.prices?.vn_cards || [];
+
+  const rows = [
+    ["Khu vực", "Nguồn", "Sản phẩm", "Mua", "Bán", "Đơn vị", "Cập nhật"],
+  ];
+  intl.forEach((card) => {
+    rows.push([
+      "Quốc tế",
+      card.exchange_name || card.symbol || "",
+      card.label || "",
+      "",
+      card.price !== null && card.price !== undefined ? card.price : "",
+      card.unit || "",
+      card.updated_at || "",
+    ]);
+  });
+  vn.forEach((card) => {
+    rows.push([
+      "Việt Nam",
+      card.provider || "",
+      card.label || "",
+      card.buy ?? "",
+      card.sell ?? "",
+      card.unit || "",
+      card.updated_label || "",
+    ]);
+  });
+
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+  downloadCsv(`tinnhanh-prices-${stamp}.csv`, rows);
+}
+
+
   el.refreshBtn.addEventListener("click", () => loadDashboard(true));
   el.queryForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -707,6 +937,16 @@ function bindEvents() {
   if (el.themeToggle) {
     el.themeToggle.addEventListener("click", toggleTheme);
   }
+  if (el.bookmarksToggle) {
+    el.bookmarksToggle.addEventListener("click", () => {
+      state.showOnlyBookmarks = !state.showOnlyBookmarks;
+      refreshBookmarksButton();
+      renderNews(state.activeTopicData);
+    });
+  }
+  if (el.exportPricesBtn) {
+    el.exportPricesBtn.addEventListener("click", exportPricesCsv);
+  }
   if (el.newsFilterInput) {
     let debounceId = null;
     el.newsFilterInput.addEventListener("input", (event) => {
@@ -724,6 +964,8 @@ async function init() {
   initTheme();
   state.recentQueries = loadRecentQueries();
   renderRecentChips();
+  state.bookmarks = loadBookmarks();
+  refreshBookmarksButton();
   bindEvents();
   lucide.createIcons();
   await loadHealth();
