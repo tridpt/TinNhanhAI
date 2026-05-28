@@ -90,15 +90,30 @@ def _extract_price_from_text(text: str) -> dict[str, object] | None:
             if unit in {"triệu", "trieu", "nghìn", "nghin", "k"}:
                 continue
         if unit in {"triệu", "trieu"}:
-            value = float(normalized.replace(",", ".").replace(".", "."))
+            try:
+                cleaned = normalized.replace(".", "").replace(",", ".")
+                value = float(cleaned) if cleaned else 0
+            except ValueError:
+                continue
             return {"value": value * 1_000_000, "currency": "VND", "raw": match.group(0)}
         if unit in {"nghìn", "nghin", "k"}:
-            value = float(normalized.replace(",", ".").replace(".", "."))
+            try:
+                cleaned = normalized.replace(".", "").replace(",", ".")
+                value = float(cleaned) if cleaned else 0
+            except ValueError:
+                continue
             return {"value": value * 1_000, "currency": "VND", "raw": match.group(0)}
         if unit in {"usd"}:
-            value = float(normalized.replace(",", ".").replace(".", "."))
+            try:
+                cleaned = normalized.replace(".", "").replace(",", ".")
+                value = float(cleaned) if cleaned else 0
+            except ValueError:
+                continue
             return {"value": value, "currency": "USD", "raw": match.group(0)}
-        value = float(normalized.replace(".", "").replace(",", "."))
+        try:
+            value = float(normalized.replace(".", "").replace(",", "."))
+        except ValueError:
+            continue
         return {"value": value, "currency": "VND", "raw": match.group(0)}
     return None
 
