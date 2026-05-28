@@ -378,14 +378,27 @@ Dữ liệu:
     if text:
         return text
 
-    lines = ["Mình tìm được các nguồn liên quan:"]
+    # Fallback: concise product-style listing (no AI available).
+    has_prices = any(r.get("price_text") for r in results[:5])
+    if has_prices:
+        lines = ["Giá tham khảo từ các nguồn:"]
+        for result in results[:5]:
+            price_text = result.get("price_text") or ""
+            if not price_text:
+                continue
+            domain = result.get("domain") or "Nguồn"
+            title = str(result.get("title") or "")
+            # Shorten title to product name only.
+            short_title = title[:60] + "..." if len(title) > 60 else title
+            lines.append(f"• {short_title}")
+            lines.append(f"  {price_text} — {domain}")
+        if not any("•" in line for line in lines):
+            lines.append("Chưa tìm được giá cụ thể.")
+        return "\n".join(lines)
+
+    lines = ["Kết quả tìm kiếm:"]
     for result in results[:4]:
-        label = result.get("title") or result.get("domain") or "Nguồn"
-        price_text = result.get("price_text") or ""
-        snippet = result.get("snippet") or ""
-        lines.append(f"- {label}")
-        if price_text:
-            lines.append(f"  {price_text}")
-        if snippet:
-            lines.append(f"  {snippet[:140]}")
+        title = str(result.get("title") or result.get("domain") or "Nguồn")
+        short_title = title[:70] + "..." if len(title) > 70 else title
+        lines.append(f"• {short_title}")
     return "\n".join(lines)
