@@ -13,6 +13,7 @@ def test_health_endpoint(flask_client):
     assert payload["status"] == "ok"
     assert payload["app_name"]
     assert "ai_enabled" in payload
+    assert "ai_provider" in payload
 
 
 def test_ask_requires_question(flask_client):

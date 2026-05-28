@@ -70,12 +70,22 @@ def icons(filename: str):
 
 @app.get("/api/health")
 def health():
+    from services.ai import ai_provider
+
+    provider = ai_provider()
+    model = ""
+    if provider == "gemini":
+        model = config.GEMINI_MODEL
+    elif provider == "openai":
+        model = config.OPENAI_MODEL
+
     return jsonify(
         {
             "status": "ok",
             "app_name": config.APP_NAME,
             "ai_enabled": ai_enabled(),
-            "openai_model": config.OPENAI_MODEL if ai_enabled() else "",
+            "ai_provider": provider,
+            "ai_model": model,
         }
     )
 
