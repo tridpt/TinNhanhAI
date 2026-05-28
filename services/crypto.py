@@ -142,10 +142,16 @@ def get_crypto_payload(*, force: bool = False) -> dict[str, Any]:
             return cached
 
     cards = fetch_crypto_prices()
+    # Fetch 7-day history for sparklines.
+    history_map = _fetch_crypto_klines([card["symbol"] for card in cards])
     formatted: list[dict[str, Any]] = []
     for card in cards:
         record_price(card["key"], card.get("price"), label=card["label"])
-        formatted.append({**card, "history": get_history(card["key"])})
+        own_history = get_history(card["key"])
+        kline_history = history_map.get(card["symbol"], [])
+        # Use whichever has more points for a richer sparkline.
+        history = own_history if len(own_history) >= len(kline_history) else kline_history
+        formatted.append({**card, "history": history})
 
     payload = {
         "generated_at": datetime.now(LOCAL_TZ).isoformat(),
@@ -153,3 +159,31 @@ def get_crypto_payload(*, force: bool = False) -> dict[str, Any]:
     }
     CACHE.set(cache_key, payload, config.PRICE_REFRESH_SECONDS)
     return payload
+
+
+def _fetch_crypto_klines(symbols: list[str]) -> dict[str, list[dict[str, Any]]]:
+    """Fetch 7-day daily klines from Binance for sparkline history."""
+
+    result: dict[str, list[dict[str, Any]]] = {}
+    for symbol in symbols:
+        try:
+            response = requests.get(
+                "https://api.binance.com/api/v3/klines",
+                params={"symbol": symbol, "interval": "4h", "limit": 42},
+                headers=HEADERS,
+                timeout=TIMEOUT,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except Exception:
+            continue
+        if not isinstance(data, list):
+            continue
+        points = []
+        for candle in data:
+            # candle[0] = open time ms, candle[4] = close price
+            ts = int(candle[0]) // 1000
+            close = float(candle[4])
+            points.append({"ts": ts, "value": close})
+        result[symbol] = points
+    return result

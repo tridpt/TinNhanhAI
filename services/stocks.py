@@ -130,14 +130,14 @@ def fetch_stock_indices() -> list[dict[str, Any]]:
                 "unit": "VND",
                 "updated_label": _now_label(),
                 "source_url": f"https://finance.yahoo.com/quote/{spec['symbol']}",
-                "session_history": [],
+                "session_history": stock_data.get("history", []),
             }
         )
     return cards
 
 
 def _fetch_yahoo_stock(symbol: str) -> dict[str, Any] | None:
-    """Fetch a single VN stock price from Yahoo Finance chart endpoint."""
+    """Fetch a single VN stock price + 30-day history from Yahoo Finance."""
 
     from urllib.parse import quote
 
@@ -145,7 +145,7 @@ def _fetch_yahoo_stock(symbol: str) -> dict[str, Any] | None:
     try:
         response = requests.get(
             url,
-            params={"range": "5d", "interval": "1d", "includePrePost": "false"},
+            params={"range": "1mo", "interval": "1d", "includePrePost": "false"},
             headers=HEADERS,
             timeout=TIMEOUT,
         )
@@ -164,10 +164,21 @@ def _fetch_yahoo_stock(symbol: str) -> dict[str, Any] | None:
         return None
     change = (price - prev_close) if prev_close else 0
     change_pct = (change / prev_close * 100) if prev_close else 0
+
+    # Extract daily close history for sparkline.
+    timestamps = result[0].get("timestamp") or []
+    quotes = (result[0].get("indicators", {}).get("quote") or [{}])[0]
+    closes = quotes.get("close") or []
+    history = []
+    for ts, close in zip(timestamps, closes, strict=False):
+        if close is not None:
+            history.append({"ts": int(ts), "value": float(close)})
+
     return {
         "price": float(price),
         "change": float(change),
         "change_percent": float(change_pct),
+        "history": history,
     }
 
 
