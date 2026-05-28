@@ -68,7 +68,12 @@ def fetch_weather() -> list[dict[str, Any]]:
                         "temperature_2m,relative_humidity_2m,"
                         "weather_code,wind_speed_10m,apparent_temperature"
                     ),
+                    "daily": (
+                        "weather_code,temperature_2m_max,temperature_2m_min,"
+                        "precipitation_probability_max"
+                    ),
                     "timezone": "Asia/Ho_Chi_Minh",
+                    "forecast_days": 5,
                 },
                 headers=HEADERS,
                 timeout=TIMEOUT,
@@ -89,6 +94,30 @@ def fetch_weather() -> list[dict[str, Any]]:
         humidity = current.get("relative_humidity_2m")
         wind = current.get("wind_speed_10m")
 
+        # Build 5-day forecast from daily data
+        daily = data.get("daily") or {}
+        forecast: list[dict[str, Any]] = []
+        dates = daily.get("time") or []
+        codes = daily.get("weather_code") or []
+        maxs = daily.get("temperature_2m_max") or []
+        mins = daily.get("temperature_2m_min") or []
+        rain_probs = daily.get("precipitation_probability_max") or []
+
+        for i, date_str in enumerate(dates):
+            day_code = codes[i] if i < len(codes) else None
+            day_label, day_icon = _describe_code(day_code)
+            forecast.append(
+                {
+                    "date": date_str,
+                    "day_label": _format_day(date_str),
+                    "weather": day_label,
+                    "icon": day_icon,
+                    "temp_max": maxs[i] if i < len(maxs) else None,
+                    "temp_min": mins[i] if i < len(mins) else None,
+                    "rain_prob": rain_probs[i] if i < len(rain_probs) else None,
+                }
+            )
+
         cards.append(
             {
                 "key": f"weather_{city['key']}",
@@ -106,9 +135,23 @@ def fetch_weather() -> list[dict[str, Any]]:
                 "humidity_text": f"{humidity}%" if humidity is not None else "",
                 "wind_text": f"{wind:.1f} km/h" if wind is not None else "",
                 "source_url": f"https://open-meteo.com/en/docs#latitude={city['lat']}&longitude={city['lon']}",
+                "forecast": forecast,
             }
         )
     return cards
+
+
+def _format_day(date_str: str) -> str:
+    """Convert '2026-05-28' to 'T4 28/05'."""
+
+    try:
+        from datetime import date as _date
+
+        d = _date.fromisoformat(date_str)
+        weekdays = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
+        return f"{weekdays[d.weekday()]} {d.strftime('%d/%m')}"
+    except Exception:
+        return date_str
 
 
 def get_weather_payload(*, force: bool = False) -> dict[str, Any]:

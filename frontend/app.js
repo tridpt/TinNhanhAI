@@ -609,6 +609,15 @@ function renderWeather(cities) {
   }
   el.weatherList.innerHTML = "";
   cities.forEach((city) => {
+    const forecast = (city.forecast || []).map((day) => `
+      <div class="forecast-day">
+        <span class="forecast-date">${day.day_label || day.date || ""}</span>
+        <i data-lucide="${day.icon || "cloud"}"></i>
+        <span class="forecast-temps">${day.temp_min != null ? Math.round(day.temp_min) : "?"}° / ${day.temp_max != null ? Math.round(day.temp_max) : "?"}°</span>
+        ${day.rain_prob != null ? `<span class="forecast-rain"><i data-lucide="droplets"></i>${day.rain_prob}%</span>` : ""}
+      </div>
+    `).join("");
+
     const card = document.createElement("article");
     card.className = "weather-card";
     card.innerHTML = `
@@ -625,6 +634,7 @@ function renderWeather(cities) {
         <li><i data-lucide="droplets"></i><span>Ẩm ${city.humidity_text || "—"}</span></li>
         <li><i data-lucide="wind"></i><span>Gió ${city.wind_text || "—"}</span></li>
       </ul>
+      ${forecast ? `<div class="forecast-row">${forecast}</div>` : ""}
     `;
     el.weatherList.appendChild(card);
   });

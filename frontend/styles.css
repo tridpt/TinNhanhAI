@@ -1938,3 +1938,66 @@ html[data-theme="dark"] .reader-backdrop {
 html[data-theme="dark"] .chart-backdrop {
   background: rgba(0, 0, 0, 0.7);
 }
+
+
+/* Weather forecast row */
+.forecast-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+  overflow-x: auto;
+}
+
+.forecast-day {
+  flex: 1 0 auto;
+  min-width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.forecast-date {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.forecast-day i {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+
+.forecast-temps {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.forecast-rain {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent-2);
+  font-size: 0.68rem;
+}
+
+.forecast-rain i {
+  width: 11px;
+  height: 11px;
+}
+
+@media (max-width: 640px) {
+  .forecast-day {
+    min-width: 56px;
+    padding: 5px 6px;
+    font-size: 0.68rem;
+  }
+}
