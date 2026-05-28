@@ -148,6 +148,19 @@ def ask():
     return jsonify(answer_question(question))
 
 
+@app.post("/api/read")
+def read_article():
+    """Extract article content from a URL for inline reading."""
+
+    from services.reader import fetch_article
+
+    payload = request.get_json(silent=True) or {}
+    url = str(payload.get("url", "")).strip()
+    if not url:
+        return jsonify({"error": "url is required"}), 400
+    return jsonify(fetch_article(url))
+
+
 @app.get("/favicon.ico")
 def favicon():
     return ("", 204)

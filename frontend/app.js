@@ -195,6 +195,10 @@ function renderNews(topic) {
     const link = node.querySelector(".news-title");
     link.textContent = item.title || "";
     link.href = item.url || "#";
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      openReader(item.url, item.title);
+    });
     node.querySelector(".news-summary").textContent = item.summary || "Không có mô tả.";
 
     const bookmarkBtn = node.querySelector(".bookmark-btn");
@@ -310,6 +314,109 @@ function renderPrices(cards) {
     el.priceList.appendChild(node);
   });
   lucide.createIcons();
+}
+
+// --- Article reader modal -----------------------------------------------------
+
+async function openReader(url, fallbackTitle) {
+  if (!url) return;
+  showReaderModal(fallbackTitle || "Đang tải...", null, url);
+
+  try {
+    const response = await fetch("/api/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (data.error || !data.paragraphs || !data.paragraphs.length) {
+      showReaderModal(
+        fallbackTitle || "Không đọc được",
+        [`<p class="muted">Không trích xuất được nội dung. <a href="${url}" target="_blank" rel="noreferrer">Mở trong tab mới →</a></p>`],
+        url,
+      );
+      return;
+    }
+    showReaderModal(
+      data.title || fallbackTitle || "",
+      data.paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`),
+      url,
+      data.word_count,
+    );
+  } catch (error) {
+    showReaderModal(
+      fallbackTitle || "Lỗi",
+      [`<p class="muted">Không kết nối được. <a href="${url}" target="_blank" rel="noreferrer">Mở trong tab mới →</a></p>`],
+      url,
+    );
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function showReaderModal(title, contentHtmlParts, url, wordCount) {
+  let modal = document.getElementById("reader-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "reader-modal";
+    modal.className = "reader-modal";
+    modal.innerHTML = `
+      <div class="reader-backdrop"></div>
+      <div class="reader-panel">
+        <div class="reader-header">
+          <h2 class="reader-title"></h2>
+          <div class="reader-actions">
+            <a class="reader-open-link chip" target="_blank" rel="noreferrer">
+              <i data-lucide="external-link"></i><span>Mở gốc</span>
+            </a>
+            <button class="reader-close icon-btn" type="button" title="Đóng (Esc)">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+        </div>
+        <div class="reader-meta"></div>
+        <div class="reader-body"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelector(".reader-backdrop").addEventListener("click", closeReader);
+    modal.querySelector(".reader-close").addEventListener("click", closeReader);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && modal.classList.contains("open")) {
+        closeReader();
+      }
+    });
+    lucide.createIcons();
+  }
+
+  modal.querySelector(".reader-title").textContent = title || "";
+  modal.querySelector(".reader-open-link").href = url || "#";
+  modal.querySelector(".reader-meta").textContent = wordCount
+    ? `~${Math.ceil(wordCount / 200)} phút đọc · ${wordCount} từ`
+    : "";
+
+  const body = modal.querySelector(".reader-body");
+  if (contentHtmlParts === null) {
+    body.innerHTML = `<div class="reader-loading"><div class="skeleton-line skeleton-line-title"></div><div class="skeleton-line skeleton-line-text"></div><div class="skeleton-line skeleton-line-text short"></div><div class="skeleton-line skeleton-line-text"></div></div>`;
+  } else {
+    body.innerHTML = contentHtmlParts.join("");
+  }
+
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+  lucide.createIcons();
+}
+
+function closeReader() {
+  const modal = document.getElementById("reader-modal");
+  if (modal) {
+    modal.classList.remove("open");
+    document.body.style.overflow = "";
+  }
 }
 
 function renderWeather(cities) {
