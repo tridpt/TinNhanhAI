@@ -33,6 +33,9 @@ jobs:
       - name: Smoke import
         run: python -c "import app; import services; import services.vn_prices; import services.vn_gold; import services.telegram_alert; import services.rate_limit; import services.history; print('ok')"
 
+      - name: Run pytest
+        run: python -m pytest
+
       - name: Health endpoint smoke test
         env:
           DEBUG: "0"

@@ -17,6 +17,15 @@ python app.py
 
 Mở `http://127.0.0.1:5055`.
 
+## Chạy tests
+
+```bash
+python -m pytest          # unit + integration tests, ~1s
+ruff check .              # lint
+```
+
+CI tự chạy ruff + pytest + smoke health-check trên Python 3.11/3.12.
+
 ## Chạy production (waitress)
 
 ```bash
