@@ -31,7 +31,7 @@ jobs:
         run: ruff check .
 
       - name: Smoke import
-        run: python -c "import app; import services; import services.vn_prices; import services.telegram_alert; import services.rate_limit; print('ok')"
+        run: python -c "import app; import services; import services.vn_prices; import services.telegram_alert; import services.rate_limit; import services.history; print('ok')"
 
       - name: Health endpoint smoke test
         env:

@@ -10,6 +10,7 @@ import requests
 import config
 
 from .cache import TTLCache
+from .history import get_history, record_price
 from .vn_prices import get_vn_prices
 
 UTC = UTC
@@ -127,6 +128,8 @@ def get_prices_payload(*, force: bool = False) -> dict[str, Any]:
                 "source_url": f"https://finance.yahoo.com/quote/{spec['symbol']}",
                 "error": str(exc),
             }
+        record_price(quote_data["key"], quote_data.get("price"), label=quote_data["label"])
+        quote_data["history"] = get_history(quote_data["key"])
         cards.append(quote_data)
 
     payload = {

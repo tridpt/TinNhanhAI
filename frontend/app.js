@@ -128,6 +128,74 @@ function renderNews(topic) {
   });
 }
 
+function renderSparkline(container, history, options = {}) {
+  if (!container) return;
+  container.innerHTML = "";
+  const points = (history || []).filter(
+    (point) => point && Number.isFinite(Number(point.value)),
+  );
+  if (points.length < 2) {
+    container.classList.add("price-spark-empty");
+    container.textContent = points.length === 1
+      ? "Đang thu thập dữ liệu lịch sử..."
+      : "Chưa đủ dữ liệu cho biểu đồ 7 ngày.";
+    return;
+  }
+  container.classList.remove("price-spark-empty");
+
+  const width = 220;
+  const height = 48;
+  const padX = 2;
+  const padY = 4;
+  const values = points.map((p) => Number(p.value));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || Math.abs(max) * 0.001 || 1;
+
+  const xStep = (width - padX * 2) / (points.length - 1);
+  const path = points
+    .map((point, idx) => {
+      const x = padX + idx * xStep;
+      const y = padY + (height - padY * 2) * (1 - (Number(point.value) - min) / span);
+      return `${idx === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const lastValue = values[values.length - 1];
+  const firstValue = values[0];
+  const trendUp = lastValue >= firstValue;
+  const stroke = trendUp ? "var(--positive, #4ade80)" : "var(--negative, #f87171)";
+  const fillId = `spark-grad-${Math.random().toString(36).slice(2, 8)}`;
+  const areaPath = `${path} L${(padX + xStep * (points.length - 1)).toFixed(1)} ${height - padY} L${padX} ${height - padY} Z`;
+
+  const firstTs = points[0].ts ? new Date(points[0].ts * 1000) : null;
+  const lastTs = points[points.length - 1].ts
+    ? new Date(points[points.length - 1].ts * 1000)
+    : null;
+  const rangeLabel = firstTs && lastTs
+    ? `${firstTs.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} → ${lastTs.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}`
+    : "";
+
+  const minLabel = options.formatTick ? options.formatTick(min) : min.toLocaleString("vi-VN");
+  const maxLabel = options.formatTick ? options.formatTick(max) : max.toLocaleString("vi-VN");
+
+  container.innerHTML = `
+    <svg class="spark-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="${fillId}" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="${stroke}" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="${stroke}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="${areaPath}" fill="url(#${fillId})"/>
+      <path d="${path}" fill="none" stroke="${stroke}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+    <div class="spark-meta">
+      <span>${rangeLabel}</span>
+      <span>${minLabel} – ${maxLabel}</span>
+    </div>
+  `;
+}
+
 function renderPrices(cards) {
   el.priceList.innerHTML = "";
   cards.forEach((card) => {
@@ -151,6 +219,9 @@ function renderPrices(cards) {
     node.querySelector(".price-updated").textContent = card.updated_at
       ? `Cập nhật: ${card.updated_at}`
       : "Cập nhật: chưa rõ";
+    renderSparkline(node.querySelector(".price-spark"), card.history, {
+      formatTick: (value) => fmtNumber(value, card.precision ?? 2),
+    });
     el.priceList.appendChild(node);
   });
   lucide.createIcons();
@@ -209,6 +280,9 @@ function renderVnPrices(cards) {
     node.querySelector(".price-updated").textContent = card.updated_label
       ? `Cập nhật: ${card.updated_label}`
       : "Cập nhật: chưa rõ";
+    renderSparkline(node.querySelector(".price-spark"), card.history, {
+      formatTick: (value) => Number(value).toLocaleString("vi-VN"),
+    });
     el.vnPriceList.appendChild(node);
   });
   lucide.createIcons();

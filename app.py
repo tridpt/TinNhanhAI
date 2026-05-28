@@ -68,6 +68,20 @@ def prices():
     return jsonify(get_prices_payload(force=force))
 
 
+@app.get("/api/prices/history")
+def prices_history():
+    from services.history import get_history
+
+    key = request.args.get("key", "").strip()
+    if not key:
+        return jsonify({"error": "key is required"}), 400
+    try:
+        days = max(1, min(int(request.args.get("days", "7")), 60))
+    except ValueError:
+        days = 7
+    return jsonify({"key": key, "days": days, "points": get_history(key, days=days)})
+
+
 @app.post("/api/ask")
 @limit(ask_limiter)
 def ask():

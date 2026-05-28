@@ -4,6 +4,7 @@ Web app tiếng Việt:
 
 - tóm tắt tin nóng theo chủ đề (thời sự, kinh tế, công nghệ, thế giới, thể thao)
 - bảng giá thị trường: vàng/dầu/xăng quốc tế **và** vàng SJC, USD/VND, xăng Petrolimex
+- lịch sử giá 7 ngày (sparkline mini-chart) tự thu thập qua mỗi lần fetch
 - hỏi nhanh AI: tin tức, giá hàng hóa hoặc tra cứu giá sản phẩm
 - (tùy chọn) gửi alert Telegram khi có tin chứa từ khóa bạn theo dõi
 
@@ -57,6 +58,7 @@ Copy `.env.example` thành `.env` rồi điền:
 - Giá thế giới: Yahoo Finance chart (vàng GC=F, dầu CL=F, xăng RB=F)
 - Giá Việt Nam: SJC, Vietcombank, Petrolimex
 - Tìm kiếm web: DuckDuckGo (qua thư viện `ddgs`)
+- Lịch sử giá: SQLite cục bộ tại `data/history.db` (throttle 4 phút/datapoint, giữ 60 ngày)
 
 ## Lưu ý
 

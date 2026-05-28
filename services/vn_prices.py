@@ -26,6 +26,7 @@ from bs4 import BeautifulSoup
 import config
 
 from .cache import TTLCache
+from .history import get_history, record_price
 
 LOCAL_TZ = timezone(timedelta(hours=7))
 CACHE = TTLCache(namespace="vn_prices")
@@ -329,6 +330,11 @@ def _format_card(card: dict[str, Any]) -> dict[str, Any]:
         formatted["price_text"] = formatted["buy_text"]
     else:
         formatted["price_text"] = ""
+
+    # Track the "sell" side (or buy if sell is missing) for the sparkline.
+    history_value = sell if sell is not None else buy
+    record_price(card.get("key", ""), history_value, label=card.get("label", ""))
+    formatted["history"] = get_history(card.get("key", ""))
     return formatted
 
 
