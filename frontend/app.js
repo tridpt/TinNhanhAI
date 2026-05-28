@@ -682,6 +682,8 @@ function countNewArticles(dashboard) {
   return collectArticleUrls(dashboard).filter((url) => !state.knownUrls.has(url)).length;
 }
 
+const ORIGINAL_TITLE = document.title;
+
 function updateNewItemsBadge() {
   if (!el.refreshBtn) return;
   let badge = el.refreshBtn.querySelector(".new-items-badge");
@@ -693,9 +695,11 @@ function updateNewItemsBadge() {
     }
     badge.textContent = state.newItemCount > 99 ? "99+" : String(state.newItemCount);
     el.refreshBtn.title = `Có ${state.newItemCount} tin mới — bấm để tải`;
-  } else if (badge) {
-    badge.remove();
+    document.title = `(${state.newItemCount}) ${ORIGINAL_TITLE}`;
+  } else {
+    if (badge) badge.remove();
     el.refreshBtn.title = "Làm mới dữ liệu";
+    document.title = ORIGINAL_TITLE;
   }
 }
 
