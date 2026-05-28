@@ -3,7 +3,7 @@ from __future__ import annotations
 import calendar
 import html
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import feedparser
@@ -11,14 +11,14 @@ import requests
 from bs4 import BeautifulSoup
 
 import config
+
 from .ai import compact_json, generate_text
 from .cache import TTLCache
 from .prices import get_prices_payload
 
-
-UTC = timezone.utc
+UTC = UTC
 LOCAL_TZ = timezone(timedelta(hours=7))
-CACHE = TTLCache()
+CACHE = TTLCache(namespace="news")
 USER_AGENT = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TinNhanhAI/1.0"}
 
 

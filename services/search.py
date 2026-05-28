@@ -10,21 +10,19 @@ from bs4 import BeautifulSoup
 from ddgs import DDGS
 
 import config
+
 from .ai import compact_json, generate_text
 from .cache import TTLCache
 
-
-CACHE = TTLCache()
+CACHE = TTLCache(namespace="search")
 USER_AGENT = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TinNhanhAI/1.0"}
 PRICE_DOMAIN_ALLOWLIST = ("didongviet.vn", "viettelstore.vn")
 PRICE_KEYWORDS = {
     "gia",
     "bao nhieu",
-    "bao nhieu",
     "price",
     "mua",
     "phone",
-    "dien thoai",
     "dien thoai",
     "iphone",
     "samsung",
@@ -36,22 +34,17 @@ PRICE_KEYWORDS = {
     "tai nghe",
     "smartwatch",
     "may anh",
-    "may anh",
 }
 NEWS_KEYWORDS = {
     "tin",
     "tom tat",
-    "tom tat",
     "diem tin",
-    "diem tin",
-    "ban tin",
     "ban tin",
     "nong",
     "hot",
     "hom nay",
-    "hom nay",
 }
-COMMODITY_KEYWORDS = {"vang", "gold", "xang", "dau", "oil", "gasoline"}
+COMMODITY_KEYWORDS = {"vang", "gold", "xang", "dau", "oil", "gasoline", "ty gia", "usd", "vnd", "sjc", "petrolimex"}
 
 
 def _strip_accents(text: str) -> str:

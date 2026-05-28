@@ -14,6 +14,8 @@ env/
 
 # data & cache
 data/
+.cache/
+state/
 *.db
 *.sqlite
 

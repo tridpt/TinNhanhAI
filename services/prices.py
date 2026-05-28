@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
 import requests
 
 import config
+
 from .cache import TTLCache
+from .vn_prices import get_vn_prices
 
-
-UTC = timezone.utc
+UTC = UTC
 LOCAL_TZ = timezone(timedelta(hours=7))
-CACHE = TTLCache()
+CACHE = TTLCache(namespace="prices")
 USER_AGENT = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) TinNhanhAI/1.0"}
 
 
@@ -131,6 +132,7 @@ def get_prices_payload(*, force: bool = False) -> dict[str, Any]:
     payload = {
         "generated_at": datetime.now(LOCAL_TZ).isoformat(),
         "cards": cards,
+        "vn_cards": get_vn_prices(force=force).get("cards", []),
     }
     CACHE.set(cache_key, payload, config.PRICE_REFRESH_SECONDS)
     return payload
