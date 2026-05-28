@@ -241,6 +241,14 @@ function renderSparkline(container, history, options = {}) {
       : "Chưa đủ dữ liệu cho biểu đồ 7 ngày.";
     return;
   }
+
+  // Filter out flat lines where all values are identical (no useful chart).
+  const uniqueValues = new Set(points.map((p) => Number(p.value)));
+  if (uniqueValues.size === 1) {
+    container.classList.add("price-spark-empty");
+    container.textContent = `${options.formatTick ? options.formatTick([...uniqueValues][0]) : [...uniqueValues][0]} (không đổi)`;
+    return;
+  }
   container.classList.remove("price-spark-empty");
 
   const width = 220;

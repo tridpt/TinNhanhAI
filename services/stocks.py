@@ -145,7 +145,7 @@ def _fetch_yahoo_stock(symbol: str) -> dict[str, Any] | None:
     try:
         response = requests.get(
             url,
-            params={"range": "1mo", "interval": "1d", "includePrePost": "false"},
+            params={"range": "3mo", "interval": "1d", "includePrePost": "false"},
             headers=HEADERS,
             timeout=TIMEOUT,
         )
