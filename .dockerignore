@@ -1,0 +1,14 @@
+.git
+.gitignore
+.github
+.cache
+.venv
+venv
+state
+__pycache__
+*.pyc
+*.log
+server.out.log
+server.err.log
+.env
+README.md

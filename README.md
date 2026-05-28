@@ -1,36 +1,65 @@
 # TinNhanh AI
 
-Web app tiếng Việt để:
+Web app tiếng Việt:
 
-- tóm tắt tin nóng theo chủ đề mỗi ngày
-- hiển thị giá thị trường cho vàng, dầu, xăng
-- tra cứu giá hoặc thông tin sản phẩm theo yêu cầu người dùng
+- tóm tắt tin nóng theo chủ đề (thời sự, kinh tế, công nghệ, thế giới, thể thao)
+- bảng giá thị trường: vàng/dầu/xăng quốc tế **và** vàng SJC, USD/VND, xăng Petrolimex
+- hỏi nhanh AI: tin tức, giá hàng hóa hoặc tra cứu giá sản phẩm
+- (tùy chọn) gửi alert Telegram khi có tin chứa từ khóa bạn theo dõi
 
-## Chạy nhanh
+## Chạy nhanh (dev)
 
 ```bash
 pip install -r requirements.txt
 python app.py
 ```
 
-Mở `http://127.0.0.1:5055`
+Mở `http://127.0.0.1:5055`.
 
-## Tuỳ chọn AI
+## Chạy production (waitress)
 
-Đặt `OPENAI_API_KEY` để bật phần tổng hợp bằng AI. Không có key thì app vẫn chạy, nhưng phần tóm tắt sẽ dùng fallback từ dữ liệu nguồn.
-
-```powershell
-$env:OPENAI_API_KEY="your_key"
+```bash
+TINNHANH_PROD=1 DEBUG=0 python app.py
 ```
+
+Hoặc dùng Docker:
+
+```bash
+docker build -t tinnhanh-ai .
+docker run --rm -p 5055:5055 \
+  -v $(pwd)/.cache:/app/.cache \
+  -v $(pwd)/state:/app/state \
+  --env-file .env \
+  tinnhanh-ai
+```
+
+Mount `.cache` và `state` để giữ cache giữa các lần restart và bộ nhớ
+"đã gửi" của Telegram watcher.
+
+## Cấu hình
+
+Copy `.env.example` thành `.env` rồi điền:
+
+| Biến | Mặc định | Ghi chú |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | _empty_ | Bật phần tóm tắt AI. Không có vẫn chạy được. |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Model OpenAI dùng cho summarize. |
+| `ASK_RATE_LIMIT_PER_MINUTE` | `20` | Giới hạn `/api/ask` theo IP. |
+| `TINNHANH_PROD` | `0` | `1` để dùng waitress thay vì Flask dev. |
+| `TELEGRAM_BOT_TOKEN` | _empty_ | Bật alert tin nóng theo keyword. |
+| `TELEGRAM_CHAT_ID` | _empty_ | Chat hoặc channel nhận tin. |
+| `TELEGRAM_KEYWORDS` | _empty_ | Danh sách keyword cách nhau bằng dấu phẩy. |
+| `TELEGRAM_POLL_SECONDS` | `600` | Khoảng thời gian quét RSS. |
 
 ## Nguồn dữ liệu
 
-- RSS tin tức từ VnExpress và Thanh Niên
-- giá hàng hóa từ Yahoo Finance chart endpoint
-- tìm kiếm web bằng DuckDuckGo
+- RSS: VnExpress, Thanh Niên
+- Giá thế giới: Yahoo Finance chart (vàng GC=F, dầu CL=F, xăng RB=F)
+- Giá Việt Nam: SJC, Vietcombank, Petrolimex
+- Tìm kiếm web: DuckDuckGo (qua thư viện `ddgs`)
 
 ## Lưu ý
 
-- Giá vàng/dầu/xăng ở đây là giá thị trường quốc tế tham khảo.
-- Giá sản phẩm là giá tham khảo từ nguồn web tìm được, không phải cam kết bán lẻ cố định.
-
+- Giá hiển thị mang tính tham khảo, không phải cam kết bán lẻ.
+- Telegram watcher chạy nền trong cùng process, không cần dịch vụ riêng.
+- Cache lưu vào `.cache/` (qua `diskcache`) để app "ấm" sau restart.

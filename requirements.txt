@@ -1,6 +1,7 @@
-Flask>=3.0
-requests>=2.31
-feedparser>=6.0
-beautifulsoup4>=4.12
-ddgs>=9.0
-
+Flask==3.1.0
+requests==2.32.3
+feedparser==6.0.12
+beautifulsoup4==4.13.3
+ddgs==9.14.2
+diskcache==5.6.3
+waitress==3.0.2

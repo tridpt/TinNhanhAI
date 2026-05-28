@@ -7,7 +7,6 @@ import requests
 
 import config
 
-
 SYSTEM_PROMPT = """Bạn là trợ lý tin tức và tra cứu giá.
 Trả lời ngắn gọn, rõ ràng, bằng tiếng Việt.
 Không bịa số liệu. Nếu dữ liệu chưa đủ chắc chắn, nói rõ là "chưa đủ nguồn".
