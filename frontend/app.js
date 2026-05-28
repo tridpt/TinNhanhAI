@@ -225,6 +225,7 @@ function renderNews(topic) {
     }
     el.newsList.appendChild(node);
   });
+  lucide.createIcons();
 }
 
 function renderSparkline(container, history, options = {}) {
