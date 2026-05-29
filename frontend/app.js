@@ -1991,6 +1991,8 @@ let _availableForexCodes = null;
 // Monotonic counter so overlapping fetchCustomForex() calls don't clobber
 // each other — only the newest invocation is allowed to paint the cards.
 let _forexFetchSeq = 0;
+let _cryptoFetchSeq = 0;
+let _stocksFetchSeq = 0;
 
 async function fetchAvailableForex() {
   if (_availableForexCodes) return _availableForexCodes;
@@ -2300,18 +2302,50 @@ function promptAddSymbol(type) {
   }
   renderCurrent();
 
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const value = input.value.trim().toUpperCase();
+    const value = input.value.trim();
     if (!value) return;
 
     const key = isStock ? LS_KEYS.customStocks : LS_KEYS.customCrypto;
     const list = loadWatchlist(key);
 
-    // Support comma-separated input.
-    const symbols = value.split(",").map((s) => s.trim()).filter(Boolean);
+    // Support comma-separated input. For crypto, normalise to Binance pairs
+    // (e.g. "btc" → "BTCUSDT", "Tether Gold (XAUT)" → "XAUTUSDT").
+    const rawSymbols = value.split(",").map((s) => s.trim()).filter(Boolean);
+    const symbols = isStock
+      ? rawSymbols.map((s) => s.toUpperCase())
+      : rawSymbols.map(normalizeCryptoSymbol).filter(Boolean);
+
+    if (!symbols.length) {
+      input.value = "";
+      input.placeholder = "Symbol không hợp lệ!";
+      return;
+    }
+
+    // Validate the symbols actually return data before saving, so we never
+    // store a dead entry that shows no card/chart.
+    const submitBtn = form.querySelector(".primary-btn");
+    const prevLabel = submitBtn ? submitBtn.textContent : "";
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Đang kiểm tra..."; }
+    let validSymbols = symbols;
+    try {
+      const endpoint = isStock ? "/api/stocks/custom" : "/api/crypto/custom";
+      const checkRes = await fetch(`${endpoint}?symbols=${encodeURIComponent(symbols.join(","))}`);
+      const checkData = await checkRes.json();
+      const returned = new Set((checkData.cards || []).map((c) => c.symbol));
+      validSymbols = symbols.filter((s) => returned.has(s));
+    } catch (err) { /* network issue — fall back to optimistic add */ }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = prevLabel; }
+
+    if (!validSymbols.length) {
+      input.value = "";
+      input.placeholder = isStock ? "Không tìm thấy mã này!" : "Không tìm thấy coin này!";
+      return;
+    }
+
     let added = 0;
-    symbols.forEach((symbol) => {
+    validSymbols.forEach((symbol) => {
       if (!list.includes(symbol)) {
         list.push(symbol);
         added++;
@@ -2345,22 +2379,53 @@ function removeFromWatchlist(type, symbol) {
 
 async function fetchCustomStocks() {
   const symbols = loadWatchlist(LS_KEYS.customStocks);
-  if (!symbols.length) return;
+  if (!symbols.length) {
+    _stocksFetchSeq += 1;
+    if (el.stocksList) el.stocksList.querySelectorAll(".custom-card").forEach((c) => c.remove());
+    return;
+  }
+  _stocksFetchSeq += 1;
+  const mySeq = _stocksFetchSeq;
   try {
     const response = await fetch(`/api/stocks/custom?symbols=${encodeURIComponent(symbols.join(","))}`);
     if (!response.ok) return;
     const data = await response.json();
+    if (mySeq !== _stocksFetchSeq) return;
     appendCustomCards(el.stocksList, data.cards || [], "stock");
   } catch (e) { /* silent */ }
 }
 
+// Normalise a user-typed crypto symbol to a Binance trading pair.
+// Accepts messy input like "tether gold (xaut)" or "btc" → "BTCUSDT".
+function normalizeCryptoSymbol(raw) {
+  if (!raw) return "";
+  let s = String(raw).toUpperCase().trim();
+  // If there is a parenthesised ticker like "TETHER GOLD (XAUT)", use it.
+  const paren = s.match(/\(([A-Z0-9]{2,15})\)/);
+  if (paren) s = paren[1];
+  // Drop anything that isn't a letter or digit (spaces, slashes, dashes...).
+  s = s.replace(/[^A-Z0-9]/g, "");
+  if (!s) return "";
+  // Already quoted against a known fiat/stable pair → leave as-is.
+  if (/(USDT|USDC|BUSD|FDUSD|TUSD|BTC|ETH|BNB)$/.test(s)) return s;
+  // Bare coin name → default to the USDT pair.
+  return `${s}USDT`;
+}
+
 async function fetchCustomCrypto() {
   const symbols = loadWatchlist(LS_KEYS.customCrypto);
-  if (!symbols.length) return;
+  if (!symbols.length) {
+    _cryptoFetchSeq += 1;
+    if (el.cryptoList) el.cryptoList.querySelectorAll(".custom-card").forEach((c) => c.remove());
+    return;
+  }
+  _cryptoFetchSeq += 1;
+  const mySeq = _cryptoFetchSeq;
   try {
     const response = await fetch(`/api/crypto/custom?symbols=${encodeURIComponent(symbols.join(","))}`);
     if (!response.ok) return;
     const data = await response.json();
+    if (mySeq !== _cryptoFetchSeq) return;
     appendCustomCards(el.cryptoList, data.cards || [], "crypto");
   } catch (e) { /* silent */ }
 }
@@ -2762,6 +2827,7 @@ function bindVisibilityHandlers() {
 
 async function init() {
   initTheme();
+  migrateCustomCryptoSymbols();
   state.recentQueries = loadRecentQueries();
   renderRecentChips();
   state.bookmarks = loadBookmarks();
@@ -2777,6 +2843,24 @@ async function init() {
   loadSavedWeatherCities();
   startAutoRefresh();
   registerServiceWorker();
+}
+
+// One-time cleanup: older versions stored free-text coin names (e.g.
+// "TETHER GOLD (XAUT)") that aren't valid Binance pairs, so their cards/charts
+// never loaded. Normalise any such entries to proper symbols like "XAUTUSDT".
+function migrateCustomCryptoSymbols() {
+  try {
+    const list = loadWatchlist(LS_KEYS.customCrypto);
+    if (!list.length) return;
+    const fixed = [];
+    let changed = false;
+    for (const entry of list) {
+      const norm = normalizeCryptoSymbol(entry);
+      if (norm && norm !== entry) changed = true;
+      if (norm && !fixed.includes(norm)) fixed.push(norm);
+    }
+    if (changed) saveWatchlist(LS_KEYS.customCrypto, fixed);
+  } catch (e) { /* ignore */ }
 }
 
 function registerServiceWorker() {
