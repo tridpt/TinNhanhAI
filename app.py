@@ -126,12 +126,92 @@ def crypto():
     return jsonify(get_crypto_payload(force=force))
 
 
+@app.get("/api/crypto/custom")
+def crypto_custom():
+    import json as _json
+    from urllib.parse import quote
+
+    from services.crypto import _fetch_crypto_klines
+
+    raw = request.args.get("symbols", "")
+    symbols = [s.strip().upper() for s in raw.split(",") if s.strip()][:20]
+    # Fetch current prices.
+    try:
+        payload_arg = _json.dumps(symbols, separators=(",", ":"))
+        url = "https://api.binance.com/api/v3/ticker/24hr?symbols=" + quote(payload_arg, safe="")
+        import requests as _req
+
+        r = _req.get(url, headers={"User-Agent": "TinNhanhAI/1.0"}, timeout=12)
+        r.raise_for_status()
+        tickers = {row["symbol"]: row for row in r.json()} if isinstance(r.json(), list) else {}
+    except Exception:
+        tickers = {}
+
+    history_map = _fetch_crypto_klines(symbols)
+    cards = []
+    for symbol in symbols:
+        row = tickers.get(symbol)
+        if not row:
+            continue
+        try:
+            price = float(row["lastPrice"])
+            change = float(row.get("priceChange", 0))
+            change_pct = float(row.get("priceChangePercent", 0))
+        except (TypeError, ValueError):
+            continue
+        cards.append(
+            {
+                "key": f"crypto_{symbol.lower()}",
+                "label": symbol.replace("USDT", ""),
+                "symbol": symbol,
+                "icon": "circle",
+                "price": price,
+                "change": change,
+                "change_percent": change_pct,
+                "price_text": f"{price:,.2f} USD" if price < 1000 else f"{price:,.0f} USD",
+                "change_text": f"{'+' if change >= 0 else ''}{change:,.2f} ({'+' if change_pct >= 0 else ''}{change_pct:.2f}%)",
+                "unit": "USD",
+                "history": history_map.get(symbol, []),
+            }
+        )
+    return jsonify({"cards": cards})
+
+
 @app.get("/api/stocks")
 def stocks():
     from services.stocks import get_stocks_payload
 
     force = request.args.get("force", "0").lower() in {"1", "true", "yes"}
     return jsonify(get_stocks_payload(force=force))
+
+
+@app.get("/api/stocks/custom")
+def stocks_custom():
+    from services.stocks import _fetch_yahoo_stock
+
+    raw = request.args.get("symbols", "")
+    symbols = [s.strip().upper() for s in raw.split(",") if s.strip()][:20]
+    cards = []
+    for symbol in symbols:
+        data = _fetch_yahoo_stock(symbol)
+        if data is None:
+            continue
+        cards.append(
+            {
+                "key": f"stock_{symbol.replace('.', '_').lower()}",
+                "label": symbol.replace(".VN", ""),
+                "symbol": symbol,
+                "icon": "trending-up",
+                "price": data["price"],
+                "change": data["change"],
+                "change_percent": data["change_percent"],
+                "price_text": f"{data['price']:,.0f}".replace(",", "."),
+                "change_text": f"{'+' if data['change'] >= 0 else ''}{data['change']:,.2f} ({'+' if data['change_percent'] >= 0 else ''}{data['change_percent']:.2f}%)",
+                "unit": "VND",
+                "history": data.get("history", []),
+            }
+        )
+    return jsonify({"cards": cards})
 
 
 @app.get("/api/weather")

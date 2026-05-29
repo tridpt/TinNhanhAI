@@ -35,6 +35,8 @@ const LS_KEYS = {
   theme: "tnai.theme",
   recentQueries: "tnai.recent",
   bookmarks: "tnai.bookmarks",
+  customStocks: "tnai.watchlist.stocks",
+  customCrypto: "tnai.watchlist.crypto",
 };
 const RECENT_QUERIES_LIMIT = 8;
 const BOOKMARK_LIMIT = 200;
@@ -1774,6 +1776,120 @@ function exportPricesCsv() {
   downloadCsv(`tinnhanh-prices-${stamp}.csv`, rows);
 }
 
+// --- Custom watchlist ---------------------------------------------------------
+
+function loadWatchlist(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveWatchlist(key, list) {
+  try {
+    localStorage.setItem(key, JSON.stringify(list));
+  } catch (e) { /* ignore */ }
+}
+
+function promptAddSymbol(type) {
+  const isStock = type === "stock";
+  const placeholder = isStock
+    ? "Nhập mã CK (vd: VNM.VN, FPT.VN, ACB.VN)"
+    : "Nhập symbol (vd: DOGEUSDT, TRXUSDT, MATICUSDT)";
+  const input = prompt(placeholder);
+  if (!input || !input.trim()) return;
+
+  const symbol = input.trim().toUpperCase();
+  const key = isStock ? LS_KEYS.customStocks : LS_KEYS.customCrypto;
+  const list = loadWatchlist(key);
+
+  if (list.includes(symbol)) {
+    alert(`${symbol} đã có trong danh sách.`);
+    return;
+  }
+
+  list.push(symbol);
+  saveWatchlist(key, list);
+
+  // Refresh the relevant section.
+  if (isStock) {
+    fetchCustomStocks();
+  } else {
+    fetchCustomCrypto();
+  }
+}
+
+function removeFromWatchlist(type, symbol) {
+  const key = type === "stock" ? LS_KEYS.customStocks : LS_KEYS.customCrypto;
+  const list = loadWatchlist(key).filter((s) => s !== symbol);
+  saveWatchlist(key, list);
+  if (type === "stock") fetchCustomStocks();
+  else fetchCustomCrypto();
+}
+
+async function fetchCustomStocks() {
+  const symbols = loadWatchlist(LS_KEYS.customStocks);
+  if (!symbols.length) return;
+  try {
+    const response = await fetch(`/api/stocks/custom?symbols=${encodeURIComponent(symbols.join(","))}`);
+    if (!response.ok) return;
+    const data = await response.json();
+    appendCustomCards(el.stocksList, data.cards || [], "stock");
+  } catch (e) { /* silent */ }
+}
+
+async function fetchCustomCrypto() {
+  const symbols = loadWatchlist(LS_KEYS.customCrypto);
+  if (!symbols.length) return;
+  try {
+    const response = await fetch(`/api/crypto/custom?symbols=${encodeURIComponent(symbols.join(","))}`);
+    if (!response.ok) return;
+    const data = await response.json();
+    appendCustomCards(el.cryptoList, data.cards || [], "crypto");
+  } catch (e) { /* silent */ }
+}
+
+function appendCustomCards(container, cards, type) {
+  if (!container) return;
+  // Remove old custom cards.
+  container.querySelectorAll(".custom-card").forEach((el) => el.remove());
+  cards.forEach((card) => {
+    const change = Number(card.change_percent || 0);
+    const trend = change > 0 ? "up" : change < 0 ? "down" : "flat";
+    const node = document.createElement("article");
+    node.className = `market-card market-trend-${trend} custom-card`;
+    node.innerHTML = `
+      <button class="remove-watchlist-btn" type="button" title="Xóa khỏi danh sách" data-symbol="${card.symbol}" data-type="${type}">
+        <i data-lucide="x"></i>
+      </button>
+      <div class="market-head">
+        <span class="market-icon"><i data-lucide="${card.icon || "circle"}"></i></span>
+        <div>
+          <h4 class="market-label">${card.label || card.symbol}</h4>
+          <p class="market-symbol">${card.symbol || ""}</p>
+        </div>
+      </div>
+      <div class="market-price">${card.price_text || "—"}</div>
+      <div class="market-change">${card.change_text || ""}</div>
+      ${card.unit ? `<div class="market-unit">${card.unit}</div>` : ""}
+      <div class="market-spark"></div>
+    `;
+    node.querySelector(".remove-watchlist-btn").addEventListener("click", () => {
+      removeFromWatchlist(type, card.symbol);
+    });
+    container.appendChild(node);
+    if (card.history && card.history.length >= 2) {
+      renderSparkline(node.querySelector(".market-spark"), card.history, {
+        formatTick: (v) => Number(v).toLocaleString("vi-VN", { maximumFractionDigits: 2 }),
+        label: card.label || card.symbol,
+      });
+    }
+  });
+  lucide.createIcons();
+}
+
 function bindEvents() {
   el.refreshBtn.addEventListener("click", () => loadDashboard(true));
   el.queryForm.addEventListener("submit", async (event) => {
@@ -1808,6 +1924,10 @@ function bindEvents() {
   if (el.exportPricesBtn) {
     el.exportPricesBtn.addEventListener("click", exportPricesCsv);
   }
+  const addStockBtn = document.getElementById("add-stock-btn");
+  if (addStockBtn) addStockBtn.addEventListener("click", () => promptAddSymbol("stock"));
+  const addCryptoBtn = document.getElementById("add-crypto-btn");
+  if (addCryptoBtn) addCryptoBtn.addEventListener("click", () => promptAddSymbol("crypto"));
   if (el.newsFilterInput) {
     let debounceId = null;
     el.newsFilterInput.addEventListener("input", (event) => {
@@ -1897,6 +2017,8 @@ async function init() {
   lucide.createIcons();
   await loadHealth();
   await loadDashboard(false);
+  fetchCustomStocks();
+  fetchCustomCrypto();
   startAutoRefresh();
   registerServiceWorker();
 }

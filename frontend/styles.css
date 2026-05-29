@@ -2234,3 +2234,66 @@ html[data-theme="dark"] .chart-backdrop {
   color: #fff;
   font-weight: 700;
 }
+
+
+/* Add to watchlist button */
+.add-watchlist-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.add-watchlist-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(15, 118, 110, 0.04);
+}
+
+.add-watchlist-btn i {
+  width: 16px;
+  height: 16px;
+}
+
+/* Remove from watchlist */
+.remove-watchlist-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--danger);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.custom-card:hover .remove-watchlist-btn {
+  opacity: 1;
+}
+
+.remove-watchlist-btn i {
+  width: 12px;
+  height: 12px;
+}
+
+.custom-card {
+  border-style: dashed;
+}
