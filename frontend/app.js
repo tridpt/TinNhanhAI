@@ -474,14 +474,7 @@ function openDetailChart(label, points, options = {}) {
 
   // Render range buttons.
   const rangeBar = modal.querySelector(".chart-range-bar");
-  const ranges = [
-    { key: "1d", label: "24h", hours: 24 },
-    { key: "3d", label: "3 ngày", hours: 72 },
-    { key: "7d", label: "7 ngày", hours: 168 },
-    { key: "1m", label: "1 tháng", hours: 720 },
-    { key: "3m", label: "3 tháng", hours: 2160 },
-    { key: "all", label: "Tất cả", hours: 0 },
-  ];
+  const ranges = getAvailableRanges(points);
   rangeBar.innerHTML = "";
   ranges.forEach((range) => {
     const btn = document.createElement("button");
@@ -525,11 +518,28 @@ function selectDefaultRange(points, ranges) {
   const newest = Math.max(...points.map((p) => p.ts));
   const spanHours = (newest - oldest) / 3600;
   // Pick the smallest range that covers most of the data.
-  if (spanHours <= 30) return ranges[0]; // 24h
-  if (spanHours <= 80) return ranges[1]; // 3d
-  if (spanHours <= 200) return ranges[2]; // 7d
-  if (spanHours <= 800) return ranges[3]; // 1m
-  return ranges[4]; // 3m
+  if (spanHours <= 80) return ranges.find((r) => r.key === "3d") || ranges[0];
+  if (spanHours <= 200) return ranges.find((r) => r.key === "7d") || ranges[1];
+  if (spanHours <= 800) return ranges.find((r) => r.key === "1m") || ranges[2];
+  return ranges.find((r) => r.key === "3m") || ranges[3];
+}
+
+function getAvailableRanges(points) {
+  const allRanges = [
+    { key: "1d", label: "24h", hours: 24 },
+    { key: "3d", label: "3 ngày", hours: 72 },
+    { key: "7d", label: "7 ngày", hours: 168 },
+    { key: "1m", label: "1 tháng", hours: 720 },
+    { key: "3m", label: "3 tháng", hours: 2160 },
+    { key: "all", label: "Tất cả", hours: 0 },
+  ];
+  if (points.length < 3) return allRanges;
+  const avgGap = (points[points.length - 1].ts - points[0].ts) / (points.length - 1);
+  // If average gap > 12h, data is daily — hide 24h option (useless).
+  if (avgGap > 12 * 3600) {
+    return allRanges.filter((r) => r.key !== "1d");
+  }
+  return allRanges;
 }
 
 function renderChartContent(modal, label, points, options) {
