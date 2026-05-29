@@ -1972,6 +1972,15 @@ async function fetchCustomForex() {
     const vcbCards = data.cards || [];
     const vcbCodes = new Set(vcbCards.map((c) => c.symbol));
 
+    // Fetch history for VCB cards from our store.
+    for (const card of vcbCards) {
+      try {
+        const hRes = await fetch(`/api/prices/history?key=${card.key}&days=30`);
+        const hData = await hRes.json();
+        card.history = hData.points || [];
+      } catch (e) { card.history = []; }
+    }
+
     // For codes not in Vietcombank, use convert endpoint + history.
     const missingCodes = codes.filter((c) => !vcbCodes.has(c));
     const extraCards = [];
@@ -2034,6 +2043,14 @@ function appendCustomForexCards(cards) {
       node.remove();
     });
     node.appendChild(removeBtn);
+    // Render sparkline if history available.
+    const sparkContainer = node.querySelector(".price-spark");
+    if (sparkContainer && card.history && card.history.length >= 2) {
+      renderSparkline(sparkContainer, card.history, {
+        formatTick: (v) => Number(v).toLocaleString("vi-VN", { maximumFractionDigits: 2 }),
+        label: card.label || "",
+      });
+    }
     el.forexList.appendChild(node);
   });
   lucide.createIcons();
