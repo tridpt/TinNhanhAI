@@ -1963,7 +1963,7 @@ async function fetchCustomForex() {
     const vcbCards = data.cards || [];
     const vcbCodes = new Set(vcbCards.map((c) => c.symbol));
 
-    // For codes not in Vietcombank, use convert endpoint.
+    // For codes not in Vietcombank, use convert endpoint + history.
     const missingCodes = codes.filter((c) => !vcbCodes.has(c));
     const extraCards = [];
     for (const code of missingCodes) {
@@ -1971,6 +1971,20 @@ async function fetchCustomForex() {
         const r = await fetch(`/api/forex/convert?from=${code}&to=VND&amount=1`);
         const d = await r.json();
         if (!d.error && d.rate) {
+          // Fetch 30-day history from frankfurter.app.
+          let history = [];
+          try {
+            const today = new Date().toISOString().slice(0, 10);
+            const past = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+            const hRes = await fetch(`https://api.frankfurter.dev/${past}..${today}?from=${code}&to=VND`);
+            const hData = await hRes.json();
+            if (hData.rates) {
+              history = Object.entries(hData.rates).map(([date, vals]) => ({
+                ts: Math.floor(new Date(date).getTime() / 1000),
+                value: vals.VND || 0,
+              })).sort((a, b) => a.ts - b.ts);
+            }
+          } catch (e) { /* no history */ }
           extraCards.push({
             label: `${code}/VND`,
             provider: "open.er-api",
@@ -1979,7 +1993,7 @@ async function fetchCustomForex() {
             price_text: `${d.rate.toLocaleString("vi-VN", {maximumFractionDigits: 2})}`,
             unit: `VND/${code}`,
             updated_label: new Date().toLocaleTimeString("vi-VN", {hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"}),
-            history: [],
+            history: history,
           });
         }
       } catch (e) { /* skip */ }
