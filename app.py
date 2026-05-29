@@ -470,11 +470,15 @@ def read_article():
 
 
 @app.post("/api/summarize")
-@limit(ask_limiter)
 def summarize_article():
-    """Summarize article text with AI (Gemini/OpenAI)."""
+    """Summarize article text with AI (Gemini/OpenAI), cached by content hash.
+
+    Cache hits bypass the rate limiter entirely since they cost no AI quota;
+    only genuine AI calls (cache misses) are rate-limited.
+    """
 
     from services.ai import ai_enabled, generate_text
+    from services.summary_cache import get_summary, save_summary
 
     payload = request.get_json(silent=True) or {}
     title = str(payload.get("title", "")).strip()
@@ -483,12 +487,31 @@ def summarize_article():
     if not content:
         return jsonify({"error": "content is required"}), 400
 
+    # Serve from cache first — an article's text never changes, so a cached
+    # summary is always valid and saves a Gemini call (and free-tier quota).
+    cached = get_summary(title, content)
+    if cached:
+        return jsonify({"summary": cached, "cached": True})
+
     if not ai_enabled():
         return jsonify({
             "summary": "",
             "error": "ai_disabled",
             "message": "Chưa bật AI. Đặt GEMINI_API_KEY để dùng tính năng này.",
         })
+
+    # Only a real AI call counts against the rate limit.
+    allowed, retry_after = ask_limiter.check()
+    if not allowed:
+        response = jsonify({
+            "summary": "",
+            "error": "rate_limited",
+            "message": "Bạn đang tóm tắt quá nhanh, hãy thử lại sau.",
+            "retry_after": retry_after,
+        })
+        response.status_code = 429
+        response.headers["Retry-After"] = str(retry_after)
+        return response
 
     # Truncate very long articles to keep prompt within limits.
     text = content[:6000]
@@ -509,7 +532,9 @@ Nội dung:
             "error": "ai_failed",
             "message": "AI đang quá tải, thử lại sau.",
         })
-    return jsonify({"summary": summary})
+    # Cache the fresh summary for next time.
+    save_summary(title, content, summary)
+    return jsonify({"summary": summary, "cached": False})
 
 
 @app.get("/favicon.ico")

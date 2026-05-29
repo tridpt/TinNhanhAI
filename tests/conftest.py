@@ -53,14 +53,25 @@ def isolated_news_store(tmp_path, monkeypatch):
 
 
 @pytest.fixture()
+def isolated_summary_cache(tmp_path, monkeypatch):
+    """Redirect ``services.summary_cache`` to a per-test SQLite file."""
+
+    from services import summary_cache
+
+    monkeypatch.setattr(summary_cache, "DB_PATH", tmp_path / "summaries.db")
+    yield summary_cache
+
+
+@pytest.fixture()
 def flask_client(monkeypatch, tmp_path):
     """Return a Flask test client with history isolated to ``tmp_path``."""
 
-    from services import history, news_store
+    from services import history, news_store, summary_cache
 
     monkeypatch.setattr(history, "DB_PATH", tmp_path / "client_history.db")
     monkeypatch.setattr(history, "_MIN_INTERVAL_SECONDS", -1)
     monkeypatch.setattr(news_store, "DB_PATH", tmp_path / "client_news.db")
+    monkeypatch.setattr(summary_cache, "DB_PATH", tmp_path / "client_summaries.db")
 
     import app as flask_app
 
