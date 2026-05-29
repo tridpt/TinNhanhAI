@@ -12,6 +12,7 @@ const state = {
   newItemCount: 0,
   autoRefreshTimerId: null,
   marketRefreshTimerId: null,
+  lastPrices: new Map(),
 };
 
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
@@ -621,6 +622,10 @@ function renderPrices(cards) {
       formatTick: (value) => fmtNumber(value, card.precision ?? 2),
       label: card.label || card.key || "",
     });
+
+    // Flash if price changed since last render.
+    flashPriceChange(node, card.key, card.price);
+
     el.priceList.appendChild(node);
   });
   lucide.createIcons();
@@ -777,6 +782,16 @@ function renderCrypto(cards) {
   renderMarketCards(el.cryptoList, cards, { showSparkline: true });
 }
 
+function flashPriceChange(node, key, newPrice) {
+  if (!key || newPrice == null) return;
+  const prev = state.lastPrices.get(key);
+  state.lastPrices.set(key, newPrice);
+  if (prev == null || prev === newPrice) return;
+  const direction = newPrice > prev ? "flash-up" : "flash-down";
+  node.classList.add(direction);
+  setTimeout(() => node.classList.remove(direction), 2000);
+}
+
 function renderMarketCards(container, cards, options = {}) {
   if (!container) return;
   if (!cards || !cards.length) {
@@ -803,6 +818,7 @@ function renderMarketCards(container, cards, options = {}) {
       <div class="market-spark"></div>
     `;
     container.appendChild(node);
+    flashPriceChange(node, card.key, card.price);
     if (options.showSparkline && card.history && card.history.length >= 2) {
       const sparkContainer = node.querySelector(".market-spark");
       renderSparkline(sparkContainer, card.history, {

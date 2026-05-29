@@ -2165,3 +2165,23 @@ html[data-theme="dark"] .chart-backdrop {
     font-size: 0.78rem;
   }
 }
+
+
+/* Price change flash animation */
+@keyframes flash-green {
+  0% { background-color: rgba(74, 222, 128, 0.25); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-red {
+  0% { background-color: rgba(248, 113, 113, 0.25); }
+  100% { background-color: transparent; }
+}
+
+.flash-up {
+  animation: flash-green 2s ease-out;
+}
+
+.flash-down {
+  animation: flash-red 2s ease-out;
+}
