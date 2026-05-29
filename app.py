@@ -206,6 +206,10 @@ def stocks_custom():
         data = _fetch_yahoo_stock(symbol)
         if data is None:
             continue
+        # Detect currency from Yahoo response or infer from symbol.
+        is_vn = symbol.endswith(".VN")
+        currency = "VND" if is_vn else "USD"
+        price_text = f"{data['price']:,.0f}".replace(",", ".") if is_vn else f"{data['price']:,.2f}"
         cards.append(
             {
                 "key": f"stock_{symbol.replace('.', '_').lower()}",
@@ -215,9 +219,9 @@ def stocks_custom():
                 "price": data["price"],
                 "change": data["change"],
                 "change_percent": data["change_percent"],
-                "price_text": f"{data['price']:,.0f}".replace(",", "."),
+                "price_text": price_text,
                 "change_text": f"{'+' if data['change'] >= 0 else ''}{data['change']:,.2f} ({'+' if data['change_percent'] >= 0 else ''}{data['change_percent']:.2f}%)",
-                "unit": "VND",
+                "unit": currency,
                 "history": data.get("history", []),
             }
         )
