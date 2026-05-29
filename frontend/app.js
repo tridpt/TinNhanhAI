@@ -1155,9 +1155,13 @@ function updateMetrics(dashboard) {
 
 function renderForex(cards) {
   if (!el.forexList) return;
-  el.forexList.innerHTML = "";
+  // Only clear default cards, preserve custom watchlist cards.
+  el.forexList.querySelectorAll(".price-card:not(.custom-card)").forEach((el) => el.remove());
+  el.forexList.querySelectorAll(".empty-state").forEach((el) => el.remove());
   if (!cards || !cards.length) {
-    el.forexList.innerHTML = `<div class="empty-state">Chưa lấy được tỷ giá.</div>`;
+    if (!el.forexList.querySelector(".custom-card")) {
+      el.forexList.insertAdjacentHTML("afterbegin", `<div class="empty-state">Chưa lấy được tỷ giá.</div>`);
+    }
     return;
   }
   cards.forEach((card) => {
@@ -1181,6 +1185,11 @@ function renderForex(cards) {
       label: card.label || card.key || "",
     });
     el.forexList.appendChild(node);
+    // Insert before custom cards.
+    const firstCustom = el.forexList.querySelector(".custom-card");
+    if (firstCustom) {
+      el.forexList.insertBefore(node, firstCustom);
+    }
   });
   lucide.createIcons();
 }
