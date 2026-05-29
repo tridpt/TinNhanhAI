@@ -395,3 +395,106 @@ def _format_card(card: dict[str, Any]) -> dict[str, Any]:
 
 def _format_vnd(value: float) -> str:
     return f"{value:,.0f}".replace(",", ".")
+
+
+def get_custom_forex_cards(codes: list[str]) -> dict[str, Any]:
+    """Fetch additional Vietcombank exchange rates by currency code.
+
+    Returns ``{"cards": [...], "available": [...]}``. On fetch failure returns
+    ``{"cards": [], "error": "fetch_failed"}``.
+    """
+
+    codes = [c.strip().upper() for c in codes if c.strip()][:20]
+    if not codes:
+        return {"cards": [], "available": []}
+
+    today = datetime.now(LOCAL_TZ).strftime("%Y-%m-%d")
+    try:
+        response = requests.get(
+            f"https://www.vietcombank.com.vn/api/exchangerates?date={today}",
+            headers=USER_AGENT,
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        rates = response.json().get("Data", [])
+    except Exception:
+        return {"cards": [], "error": "fetch_failed"}
+
+    by_code = {str(row.get("currencyCode", "")).upper(): row for row in rates}
+    available_codes = sorted(by_code.keys())
+
+    cards: list[dict[str, Any]] = []
+    for code in codes:
+        row = by_code.get(code)
+        if not row:
+            continue
+        buy_transfer = _parse_vn_number(str(row.get("transfer", "")))
+        buy_cash = _parse_vn_number(str(row.get("cash", "")))
+        sell = _parse_vn_number(str(row.get("sell", "")))
+        if not any((buy_transfer, buy_cash, sell)):
+            continue
+        buy = buy_transfer or buy_cash
+        record_price(f"forex_{code.lower()}_vnd", sell or buy, label=f"{code}/VND")
+        cards.append({
+            "key": f"forex_{code.lower()}_vnd",
+            "label": f"{code}/VND",
+            "provider": "Vietcombank",
+            "icon": "banknote",
+            "symbol": code,
+            "buy": buy,
+            "sell": sell,
+            "buy_text": f"{buy:,.0f}".replace(",", ".") if buy else "",
+            "sell_text": f"{sell:,.0f}".replace(",", ".") if sell else "",
+            "price_text": (
+                f"Mua {buy:,.0f} / Bán {sell:,.0f}".replace(",", ".")
+                if buy and sell and buy != sell
+                else f"{(sell or buy):,.0f}".replace(",", ".")
+            ),
+            "unit": f"VND/{code}",
+            "updated_label": _now_label(),
+            "history": [],
+        })
+
+    return {"cards": cards, "available": available_codes}
+
+
+def convert_currency(from_cur: str, to_cur: str, amount: float) -> dict[str, Any]:
+    """Convert between any two of ~166 currencies via open.er-api.com.
+
+    Returns a result dict, or ``{"error": ...}`` with an HTTP-style hint.
+    """
+
+    from_cur = (from_cur or "USD").strip().upper()
+    to_cur = (to_cur or "VND").strip().upper()
+    try:
+        amount = float(amount)
+    except (TypeError, ValueError):
+        amount = 1.0
+
+    try:
+        response = requests.get(
+            f"https://open.er-api.com/v6/latest/{from_cur}",
+            headers=USER_AGENT,
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except Exception:
+        return {"error": "fetch_failed", "status": 502}
+
+    rates = data.get("rates") or {}
+    if to_cur not in rates:
+        return {"error": f"{to_cur} not found", "available": sorted(rates.keys()), "status": 400}
+
+    rate = float(rates[to_cur])
+    result = amount * rate
+    record_price(f"forex_{from_cur.lower()}_{to_cur.lower()}", rate, label=f"{from_cur}/{to_cur}")
+    return {
+        "from": from_cur,
+        "to": to_cur,
+        "amount": amount,
+        "rate": rate,
+        "result": result,
+        "result_text": f"{amount:,.2f} {from_cur} = {result:,.2f} {to_cur}",
+        "available": sorted(rates.keys()),
+    }

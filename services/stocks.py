@@ -216,3 +216,58 @@ def get_stocks_payload(*, force: bool = False) -> dict[str, Any]:
     }
     CACHE.set(cache_key, payload, config.PRICE_REFRESH_SECONDS)
     return payload
+
+
+# Well-known international tickers that should NOT get a .VN suffix.
+KNOWN_INTL = {
+    "AAPL", "TSLA", "NVDA", "MSFT", "GOOGL", "AMZN", "META",
+    "NFLX", "AMD", "INTC", "BABA", "TSM", "SONY",
+}
+
+
+def _normalize_stock_symbol(symbol: str) -> str:
+    """Append ``.VN`` for bare short VN tickers; leave others untouched."""
+
+    s = symbol.strip().upper()
+    if "." in s or s in KNOWN_INTL or len(s) > 5:
+        return s
+    return f"{s}.VN"
+
+
+def get_custom_stock_cards(symbols: list[str]) -> list[dict[str, Any]]:
+    """Build price cards for a user's custom stock watchlist (Yahoo Finance)."""
+
+    raw = [s.strip().upper() for s in symbols if s.strip()][:20]
+    processed = [_normalize_stock_symbol(s) for s in raw]
+    cards: list[dict[str, Any]] = []
+    for symbol in processed:
+        data = _fetch_yahoo_stock(symbol)
+        if data is None:
+            continue
+        currency = data.get("currency", "USD")
+        is_large = data["price"] >= 1000
+        price_text = (
+            f"{data['price']:,.0f}".replace(",", ".") if is_large else f"{data['price']:,.2f}"
+        )
+        label = (
+            symbol.replace(".VN", "").replace(".KS", "").replace(".T", "").replace(".HK", "")
+        )
+        cards.append(
+            {
+                "key": f"stock_{symbol.replace('.', '_').lower()}",
+                "label": label,
+                "symbol": symbol,
+                "icon": "trending-up",
+                "price": data["price"],
+                "change": data["change"],
+                "change_percent": data["change_percent"],
+                "price_text": price_text,
+                "change_text": (
+                    f"{'+' if data['change'] >= 0 else ''}{data['change']:,.2f} "
+                    f"({'+' if data['change_percent'] >= 0 else ''}{data['change_percent']:.2f}%)"
+                ),
+                "unit": currency,
+                "history": data.get("history", []),
+            }
+        )
+    return cards

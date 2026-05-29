@@ -83,7 +83,7 @@ def test_ask_runs_through_assistant(flask_client):
         "results": [],
         "generated_at": "2026-01-01T00:00:00+07:00",
     }
-    with patch("app.answer_question", return_value=fake_response) as mock_answer:
+    with patch("routes.ai.answer_question", return_value=fake_response) as mock_answer:
         response = flask_client.post("/api/ask", json={"question": "hello"})
 
     assert response.status_code == 200
@@ -136,16 +136,13 @@ def test_news_topic_returns_404_for_unknown_topic(flask_client):
 def test_news_topic_accepts_known_topic(flask_client, monkeypatch):
     """Smoke check that valid topics still hit the payload builder."""
 
-    from services import news as news_module
+    import routes.news as news_routes
 
     monkeypatch.setattr(
-        news_module,
+        news_routes,
         "get_topic_payload",
         lambda topic, *, force=False, offset=0, limit=20: {"key": topic, "items": [], "label": "stub", "total": 0, "offset": 0, "limit": 20, "has_more": False},
     )
-    import app as flask_app
-
-    monkeypatch.setattr(flask_app, "get_topic_payload", news_module.get_topic_payload)
 
     response = flask_client.get("/api/news/all")
     assert response.status_code == 200

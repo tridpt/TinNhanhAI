@@ -190,3 +190,94 @@ def get_weather_payload(*, force: bool = False) -> dict[str, Any]:
     }
     CACHE.set(cache_key, payload, config.PRICE_REFRESH_SECONDS)
     return payload
+
+
+def fetch_location_weather(lat: str, lon: str, name: str = "Vị trí của bạn") -> dict[str, Any]:
+    """Fetch current weather + 5-day forecast for an arbitrary lat/lon.
+
+    Returns a payload dict, or ``{"error": ..., "status": ...}`` on failure.
+    """
+
+    if not lat or not lon:
+        return {"error": "lat and lon are required", "status": 400}
+
+    try:
+        response = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "current": (
+                    "temperature_2m,relative_humidity_2m,weather_code,"
+                    "wind_speed_10m,apparent_temperature"
+                ),
+                "daily": (
+                    "weather_code,temperature_2m_max,temperature_2m_min,"
+                    "precipitation_probability_max"
+                ),
+                "hourly": "temperature_2m,weather_code,precipitation_probability",
+                "timezone": "auto",
+                "forecast_days": 5,
+            },
+            headers=HEADERS,
+            timeout=TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except Exception as exc:
+        return {"error": str(exc), "status": 502}
+
+    current = data.get("current") or {}
+    code = current.get("weather_code")
+    label, icon = _describe_code(code)
+
+    daily = data.get("daily") or {}
+    hourly = data.get("hourly") or {}
+    hourly_times = hourly.get("time") or []
+    hourly_temps = hourly.get("temperature_2m") or []
+    hourly_codes = hourly.get("weather_code") or []
+    hourly_rain = hourly.get("precipitation_probability") or []
+
+    forecast: list[dict[str, Any]] = []
+    day_codes = daily.get("weather_code") or []
+    maxs = daily.get("temperature_2m_max") or []
+    mins = daily.get("temperature_2m_min") or []
+    rains = daily.get("precipitation_probability_max") or []
+    for i, date_str in enumerate(daily.get("time") or []):
+        day_code = day_codes[i] if i < len(day_codes) else None
+        day_label, day_icon = _describe_code(day_code)
+        hours: list[dict[str, Any]] = []
+        for h_idx, h_time in enumerate(hourly_times):
+            if h_time.startswith(date_str):
+                hours.append({
+                    "time": h_time[11:16],
+                    "temp": hourly_temps[h_idx] if h_idx < len(hourly_temps) else None,
+                    "code": hourly_codes[h_idx] if h_idx < len(hourly_codes) else None,
+                    "rain": hourly_rain[h_idx] if h_idx < len(hourly_rain) else None,
+                })
+        forecast.append({
+            "date": date_str,
+            "day_label": _format_day(date_str),
+            "weather": day_label,
+            "icon": day_icon,
+            "temp_max": maxs[i] if i < len(maxs) else None,
+            "temp_min": mins[i] if i < len(mins) else None,
+            "rain_prob": rains[i] if i < len(rains) else None,
+            "hours": hours,
+        })
+
+    temp = current.get("temperature_2m")
+    feels = current.get("apparent_temperature")
+    humidity = current.get("relative_humidity_2m")
+    wind = current.get("wind_speed_10m")
+
+    return {
+        "city": name,
+        "label": label,
+        "icon": icon,
+        "temperature_text": f"{temp:.0f}°C" if temp is not None else "",
+        "feels_like_text": f"{feels:.0f}°C" if feels is not None else "",
+        "humidity_text": f"{humidity}%" if humidity is not None else "",
+        "wind_text": f"{wind:.1f} km/h" if wind is not None else "",
+        "forecast": forecast,
+    }

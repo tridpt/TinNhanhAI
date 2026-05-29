@@ -213,3 +213,54 @@ def _fetch_crypto_klines(symbols: list[str]) -> dict[str, list[dict[str, Any]]]:
             points.append({"ts": ts, "value": close})
         result[symbol] = points
     return result
+
+
+def get_custom_crypto_cards(symbols: list[str]) -> list[dict[str, Any]]:
+    """Build price cards for a user's custom coin watchlist (Binance pairs).
+
+    Fetches current 24h ticker data in one call plus 90-day kline history for
+    sparklines. Symbols that Binance doesn't recognise are silently skipped.
+    """
+
+    symbols = [s.strip().upper() for s in symbols if s.strip()][:20]
+    if not symbols:
+        return []
+
+    try:
+        payload_arg = json.dumps(symbols, separators=(",", ":"))
+        url = "https://api.binance.com/api/v3/ticker/24hr?symbols=" + quote(payload_arg, safe="")
+        response = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        response.raise_for_status()
+        body = response.json()
+        tickers = {row["symbol"]: row for row in body} if isinstance(body, list) else {}
+    except Exception:
+        tickers = {}
+
+    history_map = _fetch_crypto_klines(symbols)
+    cards: list[dict[str, Any]] = []
+    for symbol in symbols:
+        row = tickers.get(symbol)
+        if not row:
+            continue
+        try:
+            price = float(row["lastPrice"])
+            change = float(row.get("priceChange", 0))
+            change_pct = float(row.get("priceChangePercent", 0))
+        except (TypeError, ValueError):
+            continue
+        cards.append(
+            {
+                "key": f"crypto_{symbol.lower()}",
+                "label": symbol.replace("USDT", ""),
+                "symbol": symbol,
+                "icon": "circle",
+                "price": price,
+                "change": change,
+                "change_percent": change_pct,
+                "price_text": _format_usd(price),
+                "change_text": _format_change(change, change_pct),
+                "unit": "USD",
+                "history": history_map.get(symbol, []),
+            }
+        )
+    return cards
