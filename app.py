@@ -427,6 +427,11 @@ def forex_convert():
     rate = float(rates[to_cur])
     result = amount * rate
 
+    # Record rate in history store for sparkline accumulation.
+    from services.history import record_price
+
+    record_price(f"forex_{from_cur.lower()}_{to_cur.lower()}", rate, label=f"{from_cur}/{to_cur}")
+
     return jsonify({
         "from": from_cur,
         "to": to_cur,
