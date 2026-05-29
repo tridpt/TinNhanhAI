@@ -42,6 +42,7 @@ const LS_KEYS = {
   customCrypto: "tnai.watchlist.crypto",
   customCities: "tnai.watchlist.cities",
   customForex: "tnai.watchlist.forex",
+  savedFilters: "tnai.savedfilters",
 };
 const RECENT_QUERIES_LIMIT = 8;
 const BOOKMARK_LIMIT = 200;
@@ -354,6 +355,224 @@ async function goToPage(currentTopic, page) {
   } catch (error) {
     console.error("Pagination failed:", error);
   }
+}
+
+// --- Advanced search ---------------------------------------------------------
+
+let _searchState = { q: "", topic: "", source: "", sources: [] };
+
+async function openAdvancedSearch() {
+  let modal = document.getElementById("search-modal");
+  if (modal) modal.remove();
+
+  const topicOptions = topicOrder
+    .filter((k) => k !== "all")
+    .map((k) => `<option value="${k}">${topicMeta[k]?.label || k}</option>`)
+    .join("");
+
+  modal = document.createElement("div");
+  modal.id = "search-modal";
+  modal.className = "search-modal";
+  modal.innerHTML = `
+    <div class="search-backdrop"></div>
+    <div class="search-dialog">
+      <div class="search-dialog-head">
+        <h3><i data-lucide="search"></i> Tìm kiếm tin nâng cao</h3>
+        <button type="button" class="search-close icon-btn" aria-label="Đóng"><i data-lucide="x"></i></button>
+      </div>
+      <form class="search-form">
+        <input type="search" class="search-input" placeholder="Nhập từ khóa: bóng đá, giá vàng, AI..." autocomplete="off" autofocus>
+        <div class="search-filters">
+          <select class="search-topic">
+            <option value="">Tất cả chủ đề</option>
+            ${topicOptions}
+          </select>
+          <select class="search-source">
+            <option value="">Tất cả nguồn</option>
+          </select>
+          <button type="submit" class="primary-btn search-go"><i data-lucide="search"></i> Tìm</button>
+        </div>
+      </form>
+      <div class="saved-filters"></div>
+      <div class="search-results"><p class="muted search-hint">Nhập từ khóa hoặc chọn bộ lọc rồi bấm Tìm. Tìm trên toàn bộ tin đã lưu (mọi chủ đề).</p></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  const close = () => { modal.classList.remove("open"); setTimeout(() => modal.remove(), 200); };
+  modal.querySelector(".search-backdrop").addEventListener("click", close);
+  modal.querySelector(".search-close").addEventListener("click", close);
+  document.addEventListener("keydown", function esc(e) {
+    if (e.key === "Escape" && document.getElementById("search-modal")) { close(); document.removeEventListener("keydown", esc); }
+  });
+
+  const form = modal.querySelector(".search-form");
+  const input = modal.querySelector(".search-input");
+  const topicSel = modal.querySelector(".search-topic");
+  const sourceSel = modal.querySelector(".search-source");
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    runAdvancedSearch(modal, {
+      q: input.value.trim(),
+      topic: topicSel.value,
+      source: sourceSel.value,
+    });
+  });
+
+  renderSavedFilters(modal);
+
+  // Preload the source list so the dropdown is populated.
+  try {
+    const res = await fetch("/api/news/search?q=");
+    const data = await res.json();
+    _searchState.sources = data.sources || [];
+    sourceSel.innerHTML = `<option value="">Tất cả nguồn</option>`
+      + _searchState.sources.map((s) => `<option value="${s}">${s}</option>`).join("");
+  } catch (e) { /* ignore */ }
+
+  modal.classList.add("open");
+  setTimeout(() => input.focus(), 50);
+  lucide.createIcons();
+}
+
+async function runAdvancedSearch(modal, filters) {
+  const resultsBox = modal.querySelector(".search-results");
+  if (!filters.q && !filters.topic && !filters.source) {
+    resultsBox.innerHTML = `<p class="muted search-hint">Nhập từ khóa hoặc chọn ít nhất một bộ lọc.</p>`;
+    return;
+  }
+  _searchState = { ..._searchState, ...filters };
+  resultsBox.innerHTML = `<div class="answer-loading"><i data-lucide="loader" class="spin"></i> Đang tìm...</div>`;
+  lucide.createIcons();
+
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", filters.q);
+  if (filters.topic) params.set("topic", filters.topic);
+  if (filters.source) params.set("source", filters.source);
+
+  try {
+    const res = await fetch(`/api/news/search?${params.toString()}`);
+    const data = await res.json();
+    renderSearchResults(modal, data.items || [], filters);
+  } catch (e) {
+    resultsBox.innerHTML = `<p class="answer-error">Tìm kiếm thất bại, thử lại.</p>`;
+  }
+}
+
+function renderSearchResults(modal, items, filters) {
+  const resultsBox = modal.querySelector(".search-results");
+  const saveRow = `
+    <div class="search-results-head">
+      <span class="muted">${items.length ? `${items.length} kết quả` : "Không có kết quả"}</span>
+      <button type="button" class="chip save-filter-btn"><i data-lucide="bookmark-plus"></i> Lưu bộ lọc</button>
+    </div>
+  `;
+  if (!items.length) {
+    resultsBox.innerHTML = saveRow + `<p class="empty-state">Không tìm thấy bài nào khớp. Thử từ khóa khác.</p>`;
+    wireSaveFilter(modal, filters);
+    lucide.createIcons();
+    return;
+  }
+
+  const cards = items.map((item) => `
+    <article class="search-result">
+      ${item.thumbnail ? `<img class="search-result-thumb" src="${item.thumbnail}" alt="" loading="lazy" onerror="this.hidden=true">` : ""}
+      <div class="search-result-body">
+        <div class="search-result-meta">
+          <span class="source-pill">${item.source || ""}</span>
+          ${item.topic_label ? `<span class="time-pill">${item.topic_label}</span>` : ""}
+          <span class="time-pill">${item.published_label || ""}</span>
+        </div>
+        <a class="search-result-title" href="${item.url}" data-url="${encodeURIComponent(item.url)}">${escapeHtml(item.title || "")}</a>
+        <p class="search-result-summary">${escapeHtml(item.summary || "")}</p>
+      </div>
+    </article>
+  `).join("");
+  resultsBox.innerHTML = saveRow + cards;
+
+  // Open articles in the reader modal.
+  resultsBox.querySelectorAll(".search-result-title").forEach((link, idx) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      openReader(items[idx].url, items[idx].title);
+    });
+  });
+  wireSaveFilter(modal, filters);
+  lucide.createIcons();
+}
+
+function wireSaveFilter(modal, filters) {
+  const btn = modal.querySelector(".save-filter-btn");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    saveFilter(filters);
+    renderSavedFilters(modal);
+    btn.innerHTML = `<i data-lucide="check"></i> Đã lưu`;
+    lucide.createIcons();
+  });
+}
+
+function loadSavedFilters() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEYS.savedFilters) || "[]");
+  } catch (e) { return []; }
+}
+
+function saveFilter(filters) {
+  if (!filters.q && !filters.topic && !filters.source) return;
+  const list = loadSavedFilters();
+  const key = `${filters.q}|${filters.topic}|${filters.source}`;
+  if (list.some((f) => `${f.q}|${f.topic}|${f.source}` === key)) return;
+  list.unshift({ q: filters.q || "", topic: filters.topic || "", source: filters.source || "" });
+  localStorage.setItem(LS_KEYS.savedFilters, JSON.stringify(list.slice(0, 12)));
+}
+
+function removeSavedFilter(index) {
+  const list = loadSavedFilters();
+  list.splice(index, 1);
+  localStorage.setItem(LS_KEYS.savedFilters, JSON.stringify(list));
+}
+
+function describeFilter(f) {
+  const parts = [];
+  if (f.q) parts.push(`"${f.q}"`);
+  if (f.topic) parts.push(topicMeta[f.topic]?.label || f.topic);
+  if (f.source) parts.push(f.source);
+  return parts.join(" · ") || "Bộ lọc";
+}
+
+function renderSavedFilters(modal) {
+  const box = modal.querySelector(".saved-filters");
+  const list = loadSavedFilters();
+  if (!list.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `
+    <span class="saved-filters-label">Bộ lọc đã lưu:</span>
+    <div class="saved-filters-chips">
+      ${list.map((f, i) => `
+        <span class="saved-filter-chip" data-index="${i}">
+          <button type="button" class="saved-filter-apply" data-index="${i}">${escapeHtml(describeFilter(f))}</button>
+          <button type="button" class="saved-filter-remove" data-index="${i}" aria-label="Xóa">×</button>
+        </span>
+      `).join("")}
+    </div>
+  `;
+  box.querySelectorAll(".saved-filter-apply").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const f = loadSavedFilters()[Number(btn.dataset.index)];
+      if (!f) return;
+      modal.querySelector(".search-input").value = f.q || "";
+      modal.querySelector(".search-topic").value = f.topic || "";
+      modal.querySelector(".search-source").value = f.source || "";
+      runAdvancedSearch(modal, f);
+    });
+  });
+  box.querySelectorAll(".saved-filter-remove").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      removeSavedFilter(Number(btn.dataset.index));
+      renderSavedFilters(modal);
+    });
+  });
 }
 
 // Format a number for display, keeping enough significant decimals for very
@@ -3080,6 +3299,8 @@ function bindEvents() {
   if (compareStockBtn) compareStockBtn.addEventListener("click", () => openCompareModal("stock"));
   const compareCryptoBtn = document.getElementById("compare-crypto-btn");
   if (compareCryptoBtn) compareCryptoBtn.addEventListener("click", () => openCompareModal("crypto"));
+  const advSearchBtn = document.getElementById("advanced-search-btn");
+  if (advSearchBtn) advSearchBtn.addEventListener("click", openAdvancedSearch);
   const addForexBtn = document.getElementById("add-forex-btn");
   if (addForexBtn) addForexBtn.addEventListener("click", promptAddForex);
   const locateBtn = document.getElementById("locate-weather-btn");

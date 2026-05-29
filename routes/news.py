@@ -16,6 +16,40 @@ def dashboard():
     return jsonify(get_dashboard_payload(force=_wants_force(request.args)))
 
 
+@bp.get("/api/news/search")
+def news_search():
+    """Search across all stored articles by keyword, topic, and source."""
+
+    from services.news_store import list_sources, search_articles
+
+    query = request.args.get("q", "").strip()
+    topic = request.args.get("topic", "").strip() or None
+    source = request.args.get("source", "").strip() or None
+
+    if topic and topic not in config.NEWS_TOPIC_META:
+        topic = None
+
+    try:
+        limit = max(1, min(int(request.args.get("limit", "40")), 100))
+    except ValueError:
+        limit = 40
+
+    # Require at least one filter so we don't dump the whole store.
+    if not (query or topic or source):
+        return jsonify({"items": [], "total": 0, "sources": list_sources()})
+
+    items = search_articles(query, topic=topic, source=source, limit=limit)
+    for item in items:
+        meta = config.NEWS_TOPIC_META.get(item.get("topic", ""), {})
+        item["topic_label"] = meta.get("label", "")
+    return jsonify({
+        "items": items,
+        "total": len(items),
+        "query": query,
+        "sources": list_sources(),
+    })
+
+
 @bp.get("/api/news/<topic>")
 def news_topic(topic: str):
     if topic not in config.NEWS_TOPIC_META:

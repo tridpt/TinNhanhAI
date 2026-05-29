@@ -150,3 +150,88 @@ def count_articles(topic: str) -> int:
             ).fetchone()[0]
         finally:
             conn.close()
+
+
+def search_articles(
+    query: str,
+    *,
+    topic: str | None = None,
+    source: str | None = None,
+    limit: int = 40,
+) -> list[dict[str, Any]]:
+    """Full-text-ish search across all stored articles.
+
+    Matches the query (accent-insensitive on the Python side is overkill here;
+    we use SQL ``LIKE`` on title/summary/source) and optionally narrows by
+    topic or source. Results are de-duplicated by URL (an article can live
+    under several topics) and returned newest-first.
+    """
+
+    query = (query or "").strip()
+    where = []
+    params: list[Any] = []
+
+    if query:
+        like = f"%{query}%"
+        where.append("(title LIKE ? OR summary LIKE ? OR source LIKE ?)")
+        params.extend([like, like, like])
+    if topic:
+        where.append("topic = ?")
+        params.append(topic)
+    if source:
+        where.append("source = ?")
+        params.append(source)
+
+    clause = (" WHERE " + " AND ".join(where)) if where else ""
+    # Over-fetch so dedup by URL still leaves a full page.
+    sql = (
+        "SELECT url, title, summary, source, thumbnail, published_at, published_label, topic"
+        f" FROM articles{clause}"
+        " ORDER BY published_at DESC, added_at DESC"
+        " LIMIT ?"
+    )
+    params.append(max(limit * 3, limit))
+
+    with _LOCK:
+        conn = _open()
+        try:
+            rows = conn.execute(sql, params).fetchall()
+        finally:
+            conn.close()
+
+    seen: set[str] = set()
+    results: list[dict[str, Any]] = []
+    for row in rows:
+        url = row[0]
+        if url in seen:
+            continue
+        seen.add(url)
+        results.append(
+            {
+                "url": url,
+                "title": row[1],
+                "summary": row[2],
+                "source": row[3],
+                "thumbnail": row[4],
+                "published_at": row[5],
+                "published_label": row[6],
+                "topic": row[7],
+            }
+        )
+        if len(results) >= limit:
+            break
+    return results
+
+
+def list_sources() -> list[str]:
+    """Distinct article sources currently in the store (for filter chips)."""
+
+    with _LOCK:
+        conn = _open()
+        try:
+            rows = conn.execute(
+                "SELECT DISTINCT source FROM articles WHERE source != '' ORDER BY source"
+            ).fetchall()
+        finally:
+            conn.close()
+    return [row[0] for row in rows]
