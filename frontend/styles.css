@@ -1279,6 +1279,7 @@ html[data-theme="dark"] #bookmarks-toggle.active {
   border-radius: var(--radius-sm);
   padding: 12px 14px;
   background: var(--surface-soft);
+  position: relative;
 }
 
 .weather-head {
@@ -2286,6 +2287,10 @@ html[data-theme="dark"] .chart-backdrop {
 }
 
 .custom-card:hover .remove-watchlist-btn {
+  opacity: 1;
+}
+
+.weather-card .remove-watchlist-btn {
   opacity: 1;
 }
 
