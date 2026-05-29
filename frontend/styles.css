@@ -2051,3 +2051,11 @@ html[data-theme="dark"] .chart-backdrop {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
 }
+
+
+/* Load more button */
+.load-more-btn {
+  width: 100%;
+  margin-top: 12px;
+  justify-content: center;
+}

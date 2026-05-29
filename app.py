@@ -101,7 +101,15 @@ def news_topic(topic: str):
     if topic not in config.NEWS_TOPIC_META:
         return jsonify({"error": "unknown_topic", "topic": topic}), 404
     force = request.args.get("force", "0").lower() in {"1", "true", "yes"}
-    return jsonify(get_topic_payload(topic, force=force))
+    try:
+        offset = max(0, int(request.args.get("offset", "0")))
+    except ValueError:
+        offset = 0
+    try:
+        limit = max(1, min(int(request.args.get("limit", "20")), 50))
+    except ValueError:
+        limit = 20
+    return jsonify(get_topic_payload(topic, force=force, offset=offset, limit=limit))
 
 
 @app.get("/api/prices")

@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 
 import config
 
+from . import news_store
 from .ai import compact_json, generate_text
 from .cache import TTLCache
 from .crypto import get_crypto_payload
@@ -185,34 +186,54 @@ Dữ liệu:
     return text or _fallback_summary(label, items)
 
 
-def get_topic_payload(topic_key: str, *, force: bool = False) -> dict[str, Any]:
+def get_topic_payload(topic_key: str, *, force: bool = False, offset: int = 0, limit: int = 20) -> dict[str, Any]:
     topic_key = topic_key if topic_key in config.NEWS_TOPIC_META else "all"
-    cache_key = f"news-topic:{topic_key}"
-    if not force:
-        cached = CACHE.get(cache_key)
-        if cached:
-            return cached
 
-    if topic_key == "all":
-        collected: list[dict[str, Any]] = []
-        for key in config.NEWS_TOPIC_ORDER:
-            if key == "all":
-                continue
-            collected.extend(_collect_topic_items(key))
-        items = _dedupe_items(collected)[:20]
-    else:
-        items = _collect_topic_items(topic_key)[:20]
+    # On force refresh (or first load), fetch fresh RSS and store new articles.
+    cache_key = f"news-topic-fetched:{topic_key}"
+    if force or not CACHE.get(cache_key):
+        if topic_key == "all":
+            collected: list[dict[str, Any]] = []
+            for key in config.NEWS_TOPIC_ORDER:
+                if key == "all":
+                    continue
+                fresh = _collect_topic_items(key)
+                news_store.upsert_articles(key, fresh)
+                collected.extend(fresh)
+            # Also store under "all" topic for unified pagination.
+            deduped = _dedupe_items(collected)
+            news_store.upsert_articles("all", deduped)
+        else:
+            fresh = _collect_topic_items(topic_key)
+            news_store.upsert_articles(topic_key, fresh)
+        CACHE.set(cache_key, True, config.NEWS_REFRESH_SECONDS)
 
-    payload = {
+    # Always read from persistent store (accumulated articles).
+    items = news_store.get_articles(topic_key, offset=offset, limit=limit)
+    total = news_store.count_articles(topic_key)
+
+    # Only generate summary for the first page.
+    summary = ""
+    if offset == 0:
+        summary_cache_key = f"news-summary:{topic_key}"
+        if not force:
+            summary = CACHE.get(summary_cache_key) or ""
+        if not summary:
+            summary = _summarize_topic(_topic_label(topic_key), items[:8])
+            CACHE.set(summary_cache_key, summary, config.NEWS_REFRESH_SECONDS)
+
+    return {
         "key": topic_key,
         "label": _topic_label(topic_key),
         "icon": _topic_icon(topic_key),
-        "summary": _summarize_topic(_topic_label(topic_key), items),
+        "summary": summary,
         "items": items,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "has_more": offset + limit < total,
         "source_count": len(_topic_sources(topic_key)),
     }
-    CACHE.set(cache_key, payload, config.NEWS_REFRESH_SECONDS)
-    return payload
 
 
 def get_dashboard_payload(*, force: bool = False) -> dict[str, Any]:

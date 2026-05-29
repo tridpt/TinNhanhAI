@@ -1,0 +1,152 @@
+"""Persistent news article store backed by SQLite.
+
+Articles are accumulated across refreshes so older news doesn't disappear.
+Each topic keeps at most :data:`MAX_ARTICLES_PER_TOPIC` articles, pruning
+the oldest when the cap is exceeded.
+"""
+
+from __future__ import annotations
+
+import sqlite3
+import threading
+from pathlib import Path
+from typing import Any
+
+DB_PATH = Path(__file__).resolve().parent.parent / "data" / "news.db"
+MAX_ARTICLES_PER_TOPIC = 200
+
+_LOCK = threading.Lock()
+
+
+def _open() -> sqlite3.Connection:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH, timeout=5.0, isolation_level=None)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS articles (
+            url         TEXT NOT NULL,
+            topic       TEXT NOT NULL,
+            title       TEXT NOT NULL DEFAULT '',
+            summary     TEXT NOT NULL DEFAULT '',
+            source      TEXT NOT NULL DEFAULT '',
+            thumbnail   TEXT NOT NULL DEFAULT '',
+            published_at TEXT NOT NULL DEFAULT '',
+            published_label TEXT NOT NULL DEFAULT '',
+            added_at    INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (url, topic)
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_articles_topic_added ON articles(topic, added_at DESC)"
+    )
+    return conn
+
+
+def upsert_articles(topic: str, items: list[dict[str, Any]]) -> int:
+    """Insert new articles, skip duplicates. Returns count of new inserts."""
+
+    if not items:
+        return 0
+
+    import time
+
+    now = int(time.time())
+    inserted = 0
+
+    with _LOCK:
+        conn = _open()
+        try:
+            for item in items:
+                url = (item.get("url") or "").strip()
+                if not url:
+                    continue
+                try:
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO articles
+                            (url, topic, title, summary, source, thumbnail, published_at, published_label, added_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            url,
+                            topic,
+                            item.get("title") or "",
+                            item.get("summary") or "",
+                            item.get("source") or "",
+                            item.get("thumbnail") or "",
+                            item.get("published_at") or "",
+                            item.get("published_label") or "",
+                            now,
+                        ),
+                    )
+                    if conn.total_changes:
+                        inserted += 1
+                except Exception:
+                    continue
+
+            # Prune oldest if over cap.
+            count = conn.execute(
+                "SELECT COUNT(*) FROM articles WHERE topic = ?", (topic,)
+            ).fetchone()[0]
+            if count > MAX_ARTICLES_PER_TOPIC:
+                excess = count - MAX_ARTICLES_PER_TOPIC
+                conn.execute(
+                    """
+                    DELETE FROM articles WHERE rowid IN (
+                        SELECT rowid FROM articles
+                        WHERE topic = ?
+                        ORDER BY added_at ASC, published_at ASC
+                        LIMIT ?
+                    )
+                    """,
+                    (topic, excess),
+                )
+        finally:
+            conn.close()
+    return inserted
+
+
+def get_articles(topic: str, *, offset: int = 0, limit: int = 20) -> list[dict[str, Any]]:
+    """Return articles for a topic, newest first, with pagination."""
+
+    with _LOCK:
+        conn = _open()
+        try:
+            rows = conn.execute(
+                """
+                SELECT url, title, summary, source, thumbnail, published_at, published_label
+                FROM articles
+                WHERE topic = ?
+                ORDER BY published_at DESC, added_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                (topic, limit, offset),
+            ).fetchall()
+        finally:
+            conn.close()
+
+    return [
+        {
+            "url": row[0],
+            "title": row[1],
+            "summary": row[2],
+            "source": row[3],
+            "thumbnail": row[4],
+            "published_at": row[5],
+            "published_label": row[6],
+        }
+        for row in rows
+    ]
+
+
+def count_articles(topic: str) -> int:
+    with _LOCK:
+        conn = _open()
+        try:
+            return conn.execute(
+                "SELECT COUNT(*) FROM articles WHERE topic = ?", (topic,)
+            ).fetchone()[0]
+        finally:
+            conn.close()

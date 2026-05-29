@@ -141,10 +141,8 @@ def test_news_topic_accepts_known_topic(flask_client, monkeypatch):
     monkeypatch.setattr(
         news_module,
         "get_topic_payload",
-        lambda topic, *, force=False: {"key": topic, "items": [], "label": "stub"},
+        lambda topic, *, force=False, offset=0, limit=20: {"key": topic, "items": [], "label": "stub", "total": 0, "offset": 0, "limit": 20, "has_more": False},
     )
-    # The view imports the symbol at module load via ``from services import``
-    # so we need to patch the binding the view actually sees.
     import app as flask_app
 
     monkeypatch.setattr(flask_app, "get_topic_payload", news_module.get_topic_payload)

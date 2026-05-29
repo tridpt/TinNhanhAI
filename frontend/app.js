@@ -225,7 +225,42 @@ function renderNews(topic) {
     }
     el.newsList.appendChild(node);
   });
+
+  // "Load more" button if there are more articles in the store.
+  const existingLoadMore = el.newsList.querySelector(".load-more-btn");
+  if (existingLoadMore) existingLoadMore.remove();
+  if (topic.has_more) {
+    const loadMoreBtn = document.createElement("button");
+    loadMoreBtn.type = "button";
+    loadMoreBtn.className = "load-more-btn primary-btn";
+    loadMoreBtn.textContent = `Xem thêm (${topic.total - (topic.offset || 0) - filtered.length} bài còn lại)`;
+    loadMoreBtn.addEventListener("click", () => loadMoreNews(topic));
+    el.newsList.appendChild(loadMoreBtn);
+  }
+
   lucide.createIcons();
+}
+
+async function loadMoreNews(currentTopic) {
+  const nextOffset = (currentTopic.offset || 0) + (currentTopic.limit || 20);
+  try {
+    const response = await fetch(`/api/news/${currentTopic.key}?offset=${nextOffset}&limit=20`);
+    const data = await response.json();
+    if (!data.items || !data.items.length) return;
+    // Merge new items into current topic data.
+    const merged = {
+      ...currentTopic,
+      items: [...(currentTopic.items || []), ...data.items],
+      offset: data.offset,
+      total: data.total,
+      has_more: data.has_more,
+    };
+    state.activeTopicData = merged;
+    // Re-render with all accumulated items.
+    renderNews(merged);
+  } catch (error) {
+    console.error("Load more failed:", error);
+  }
 }
 
 function renderSparkline(container, history, options = {}) {
