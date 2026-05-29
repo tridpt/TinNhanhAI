@@ -400,6 +400,44 @@ def forex_custom():
     return jsonify({"cards": cards, "available": sorted(available_codes)})
 
 
+@app.get("/api/forex/convert")
+def forex_convert():
+    """Convert between any two of 166 currencies using open.er-api.com."""
+
+    import requests as _req
+
+    from_cur = request.args.get("from", "USD").strip().upper()
+    to_cur = request.args.get("to", "VND").strip().upper()
+    try:
+        amount = float(request.args.get("amount", "1"))
+    except ValueError:
+        amount = 1.0
+
+    try:
+        r = _req.get(f"https://open.er-api.com/v6/latest/{from_cur}", timeout=10)
+        r.raise_for_status()
+        data = r.json()
+    except Exception:
+        return jsonify({"error": "fetch_failed"}), 502
+
+    rates = data.get("rates") or {}
+    if to_cur not in rates:
+        return jsonify({"error": f"{to_cur} not found", "available": sorted(rates.keys())}), 400
+
+    rate = float(rates[to_cur])
+    result = amount * rate
+
+    return jsonify({
+        "from": from_cur,
+        "to": to_cur,
+        "amount": amount,
+        "rate": rate,
+        "result": result,
+        "result_text": f"{amount:,.2f} {from_cur} = {result:,.2f} {to_cur}",
+        "available": sorted(rates.keys()),
+    })
+
+
 @app.post("/api/ask")
 @limit(ask_limiter)
 def ask():

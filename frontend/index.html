@@ -145,6 +145,18 @@
             </button>
           </h3>
           <div id="forex-list" class="price-list price-list-vn"></div>
+          <div class="converter-box" id="converter-box">
+            <h4 class="converter-title"><i data-lucide="repeat"></i> Quy đổi ngoại tệ (166 loại)</h4>
+            <form id="converter-form" class="converter-form">
+              <input type="number" id="converter-amount" value="1" min="0" step="any" class="converter-input">
+              <input type="text" id="converter-from" value="USD" placeholder="Từ (USD)" class="converter-currency" list="currency-list">
+              <span class="converter-arrow">→</span>
+              <input type="text" id="converter-to" value="VND" placeholder="Sang (VND)" class="converter-currency" list="currency-list">
+              <button type="submit" class="primary-btn converter-btn">Đổi</button>
+            </form>
+            <div id="converter-result" class="converter-result"></div>
+            <datalist id="currency-list"></datalist>
+          </div>
         </div>
       </section>
     </section>

@@ -1894,6 +1894,49 @@ function exportPricesCsv() {
   downloadCsv(`tinnhanh-prices-${stamp}.csv`, rows);
 }
 
+// --- Currency converter -------------------------------------------------------
+
+function initConverter() {
+  const form = document.getElementById("converter-form");
+  if (!form) return;
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const amount = document.getElementById("converter-amount").value || "1";
+    const from = document.getElementById("converter-from").value.trim().toUpperCase() || "USD";
+    const to = document.getElementById("converter-to").value.trim().toUpperCase() || "VND";
+    const resultDiv = document.getElementById("converter-result");
+    resultDiv.textContent = "Đang quy đổi...";
+    try {
+      const r = await fetch(`/api/forex/convert?from=${from}&to=${to}&amount=${amount}`);
+      const data = await r.json();
+      if (data.error) {
+        resultDiv.textContent = `Lỗi: ${data.error}`;
+        return;
+      }
+      resultDiv.innerHTML = `<strong>${data.result_text}</strong><br><span class="muted">Tỷ giá: 1 ${data.from} = ${data.rate.toLocaleString("vi-VN", {maximumFractionDigits: 4})} ${data.to}</span>`;
+      // Populate datalist with available currencies.
+      if (data.available) populateCurrencyList(data.available);
+    } catch (err) {
+      resultDiv.textContent = "Không kết nối được.";
+    }
+  });
+  // Pre-load currency list.
+  fetch("/api/forex/convert?from=USD&to=VND&amount=1")
+    .then((r) => r.json())
+    .then((data) => { if (data.available) populateCurrencyList(data.available); })
+    .catch(() => {});
+}
+
+function populateCurrencyList(codes) {
+  const datalist = document.getElementById("currency-list");
+  if (!datalist || datalist.children.length > 0) return;
+  codes.forEach((code) => {
+    const opt = document.createElement("option");
+    opt.value = code;
+    datalist.appendChild(opt);
+  });
+}
+
 // --- Custom forex ------------------------------------------------------------
 
 let _availableForexCodes = null;
@@ -2557,6 +2600,7 @@ async function init() {
   fetchCustomStocks();
   fetchCustomCrypto();
   fetchCustomForex();
+  initConverter();
   loadSavedWeatherCities();
   startAutoRefresh();
   registerServiceWorker();
