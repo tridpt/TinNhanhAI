@@ -7,7 +7,7 @@ const state = {
   loadingQuestion: false,
   aiEnabled: false,
   recentQueries: [],
-  bookmarks: new Set(),
+  bookmarks: new Map(),
   knownUrls: new Set(),
   newItemCount: 0,
   autoRefreshTimerId: null,
@@ -157,8 +157,13 @@ function renderNews(topic) {
   const filter = stripVnAccents(filterRaw);
   const onlyBookmarked = state.showOnlyBookmarks;
 
-  const filtered = items.filter((item) => {
-    if (onlyBookmarked && !state.bookmarks.has(item.url)) return false;
+  let sourceItems = items;
+  if (onlyBookmarked) {
+    // Show all bookmarked articles (from localStorage), not just those in current feed.
+    sourceItems = [...state.bookmarks.values()];
+  }
+
+  const filtered = sourceItems.filter((item) => {
     if (!filter) return true;
     const haystack = stripVnAccents(
       `${item.title || ""} ${item.summary || ""} ${item.source || ""}`,
@@ -1265,23 +1270,31 @@ function renderRecentChips() {
 function loadBookmarks() {
   try {
     const raw = localStorage.getItem(LS_KEYS.bookmarks);
-    if (!raw) return new Set();
+    if (!raw) return new Map();
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(parsed.slice(0, BOOKMARK_LIMIT).filter((url) => typeof url === "string"));
+    // Support both old format (array of URLs) and new format (array of objects).
+    if (!Array.isArray(parsed)) return new Map();
+    const map = new Map();
+    for (const entry of parsed.slice(0, BOOKMARK_LIMIT)) {
+      if (typeof entry === "string") {
+        // Old format: just URL, no metadata.
+        map.set(entry, { url: entry, title: "", summary: "", source: "", thumbnail: "", published_label: "" });
+      } else if (entry && entry.url) {
+        map.set(entry.url, entry);
+      }
+    }
+    return map;
   } catch (error) {
-    return new Set();
+    return new Map();
   }
 }
 
 function saveBookmarks() {
   try {
-    localStorage.setItem(
-      LS_KEYS.bookmarks,
-      JSON.stringify([...state.bookmarks].slice(0, BOOKMARK_LIMIT)),
-    );
+    const entries = [...state.bookmarks.values()].slice(0, BOOKMARK_LIMIT);
+    localStorage.setItem(LS_KEYS.bookmarks, JSON.stringify(entries));
   } catch (error) {
-    /* quota / private mode — keep state in memory at least */
+    /* quota / private mode */
   }
 }
 
@@ -1290,7 +1303,16 @@ function toggleBookmark(item) {
   if (state.bookmarks.has(item.url)) {
     state.bookmarks.delete(item.url);
   } else {
-    state.bookmarks.add(item.url);
+    // Store full article data so bookmarked items survive even if removed from feed.
+    state.bookmarks.set(item.url, {
+      url: item.url,
+      title: item.title || "",
+      summary: item.summary || "",
+      source: item.source || "",
+      thumbnail: item.thumbnail || "",
+      published_label: item.published_label || "",
+      published_at: item.published_at || "",
+    });
   }
   saveBookmarks();
   refreshBookmarksButton();
