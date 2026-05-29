@@ -162,14 +162,14 @@ def get_crypto_payload(*, force: bool = False) -> dict[str, Any]:
 
 
 def _fetch_crypto_klines(symbols: list[str]) -> dict[str, list[dict[str, Any]]]:
-    """Fetch 7-day daily klines from Binance for sparkline history."""
+    """Fetch 3-month history from Binance klines for charts."""
 
     result: dict[str, list[dict[str, Any]]] = {}
     for symbol in symbols:
         try:
             response = requests.get(
                 "https://api.binance.com/api/v3/klines",
-                params={"symbol": symbol, "interval": "4h", "limit": 42},
+                params={"symbol": symbol, "interval": "1d", "limit": 90},
                 headers=HEADERS,
                 timeout=TIMEOUT,
             )

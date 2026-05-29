@@ -41,7 +41,7 @@ def _now_label() -> str:
     return datetime.now(LOCAL_TZ).strftime("%d/%m %H:%M")
 
 
-def _fetch_index_history(symbol: str, *, days: int = 30) -> dict[str, Any] | None:
+def _fetch_index_history(symbol: str, *, days: int = 90) -> dict[str, Any] | None:
     """Pull daily OHLC for one index from VNDirect's dchart proxy."""
 
     now = int(time.time())
