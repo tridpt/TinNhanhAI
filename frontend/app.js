@@ -555,13 +555,15 @@ function openDetailChart(label, points, options = {}) {
   chartBody.addEventListener("mousemove", (e) => {
     const rect = svg.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
-    // Convert pixel position to SVG viewBox X coordinate directly.
+    // Clamp crosshair within the chart area (padX to width-padX in viewBox).
     const svgX = (mouseX / rect.width) * width;
-    // Find the closest data point by comparing SVG X coordinates.
+    const clampedSvgX = Math.max(padX, Math.min(svgX, width - padX));
+
+    // Find the closest data point.
     let closestIdx = 0;
     let closestDist = Infinity;
     for (let i = 0; i < coords.length; i++) {
-      const dist = Math.abs(coords[i].x - svgX);
+      const dist = Math.abs(coords[i].x - clampedSvgX);
       if (dist < closestDist) {
         closestDist = dist;
         closestIdx = i;
@@ -569,10 +571,9 @@ function openDetailChart(label, points, options = {}) {
     }
     const c = coords[closestIdx];
 
-    // Position crosshair at the mouse's SVG X (not the data point X)
-    // so it tracks the cursor exactly.
-    crosshair.setAttribute("x1", svgX.toFixed(1));
-    crosshair.setAttribute("x2", svgX.toFixed(1));
+    // Crosshair snaps to the data point X (stays within chart bounds).
+    crosshair.setAttribute("x1", c.x.toFixed(1));
+    crosshair.setAttribute("x2", c.x.toFixed(1));
     crosshair.setAttribute("opacity", "1");
     dot.setAttribute("cx", c.x.toFixed(1));
     dot.setAttribute("cy", c.y.toFixed(1));
