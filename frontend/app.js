@@ -1796,8 +1796,8 @@ function saveWatchlist(key, list) {
 function promptAddSymbol(type) {
   const isStock = type === "stock";
   const placeholder = isStock
-    ? "VNM.VN, FPT.VN, ACB.VN"
-    : "DOGEUSDT, TRXUSDT, MATICUSDT";
+    ? "STB, ACB, FPT, VNM"
+    : "DOGEUSDT, TRXUSDT, SHIBUSDT";
   const title = isStock ? "Thêm mã chứng khoán" : "Thêm coin crypto";
 
   // Create inline modal instead of browser prompt.

@@ -191,6 +191,8 @@ def stocks_custom():
 
     raw = request.args.get("symbols", "")
     symbols = [s.strip().upper() for s in raw.split(",") if s.strip()][:20]
+    # Auto-append .VN suffix for Vietnamese stocks if not present.
+    symbols = [s if "." in s else f"{s}.VN" for s in symbols]
     cards = []
     for symbol in symbols:
         data = _fetch_yahoo_stock(symbol)
