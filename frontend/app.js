@@ -630,15 +630,44 @@ function renderChartContent(modal, label, points, options) {
     return `<span>${label}</span>`;
   }).join("");
 
-  // Footer stats
+  // Footer stats — richer grid: current, change, open, high, low, average.
   const footer = modal.querySelector(".chart-footer");
   const sign = change >= 0 ? "+" : "";
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  const volatilityPct = firstValue ? ((max - min) / firstValue * 100) : 0;
   footer.innerHTML = `
-    <span>Hiện tại: <strong>${formatTick(lastValue)}</strong></span>
-    <span>Thay đổi: <strong style="color:${lineColor}">${sign}${formatTick(change)} (${sign}${changePct}%)</strong></span>
-    <span>Thấp nhất: ${formatTick(min)}</span>
-    <span>Cao nhất: ${formatTick(max)}</span>
-    <span>${points.length} điểm dữ liệu</span>
+    <div class="chart-stat">
+      <span class="chart-stat-label">Hiện tại</span>
+      <span class="chart-stat-value">${formatTick(lastValue)}</span>
+    </div>
+    <div class="chart-stat">
+      <span class="chart-stat-label">Thay đổi</span>
+      <span class="chart-stat-value" style="color:${lineColor}">${sign}${formatTick(change)} (${sign}${changePct}%)</span>
+    </div>
+    <div class="chart-stat">
+      <span class="chart-stat-label">Mở đầu kỳ</span>
+      <span class="chart-stat-value">${formatTick(firstValue)}</span>
+    </div>
+    <div class="chart-stat">
+      <span class="chart-stat-label">Cao nhất</span>
+      <span class="chart-stat-value">${formatTick(max)}</span>
+    </div>
+    <div class="chart-stat">
+      <span class="chart-stat-label">Thấp nhất</span>
+      <span class="chart-stat-value">${formatTick(min)}</span>
+    </div>
+    <div class="chart-stat">
+      <span class="chart-stat-label">Trung bình</span>
+      <span class="chart-stat-value">${formatTick(avg)}</span>
+    </div>
+    <div class="chart-stat">
+      <span class="chart-stat-label">Biên độ</span>
+      <span class="chart-stat-value">${volatilityPct.toFixed(1)}%</span>
+    </div>
+    <div class="chart-stat">
+      <span class="chart-stat-label">Số điểm</span>
+      <span class="chart-stat-value">${points.length}</span>
+    </div>
   `;
 
   // Tooltip on hover
@@ -1022,6 +1051,28 @@ function flashPriceChange(node, key, newPrice) {
   setTimeout(() => node.classList.remove(direction), 2000);
 }
 
+// Let the card header (icon + label) open the same detail chart as the
+// sparkline, so users discover the rich view more easily.
+function makeMarketHeadClickable(node, card) {
+  const head = node.querySelector(".market-head");
+  if (!head) return;
+  const points = (card.history || []).filter(
+    (p) => p && Number.isFinite(Number(p.value)),
+  );
+  if (points.length < 2) return;
+  head.classList.add("market-head-clickable");
+  head.title = "Bấm để xem biểu đồ chi tiết";
+  head.addEventListener("click", () => {
+    const lastValue = Number(points[points.length - 1].value);
+    const firstValue = Number(points[0].value);
+    const stroke = lastValue >= firstValue ? "var(--positive, #4ade80)" : "var(--negative, #f87171)";
+    openDetailChart(card.label || card.symbol || "", points, {
+      formatTick: (v) => formatSmartNumber(v, 2),
+      stroke,
+    });
+  });
+}
+
 function renderMarketCards(container, cards, options = {}) {
   if (!container) return;
   if (!cards || !cards.length) {
@@ -1068,6 +1119,8 @@ function renderMarketCards(container, cards, options = {}) {
         formatTick: (value) => formatSmartNumber(value, 2),
         label: card.label || card.key || "",
       });
+      // Make the whole card header open the detail chart too (better discovery).
+      makeMarketHeadClickable(node, card);
     }
   });
   lucide.createIcons();
@@ -2530,6 +2583,7 @@ function appendCustomCards(container, cards, type) {
         formatTick: (v) => formatSmartNumber(v, 2),
         label: card.label || card.symbol,
       });
+      makeMarketHeadClickable(node, card);
     }
   });
   lucide.createIcons();

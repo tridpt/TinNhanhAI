@@ -1949,17 +1949,47 @@ html[data-theme="dark"] .reader-backdrop {
 }
 
 .chart-footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 20px;
-  padding: 12px 20px 16px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px 16px;
+  padding: 14px 20px 18px;
   border-top: 1px solid var(--line);
-  font-size: 0.82rem;
-  color: var(--muted);
 }
 
 .chart-footer strong {
   color: var(--text);
+}
+
+.chart-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chart-stat-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chart-stat-value {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.market-head-clickable {
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.market-head-clickable:hover {
+  background: rgba(127, 127, 127, 0.08);
 }
 
 @media (max-width: 640px) {
@@ -1980,8 +2010,13 @@ html[data-theme="dark"] .reader-backdrop {
   }
 
   .chart-footer {
-    font-size: 0.75rem;
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px 14px;
+    font-size: 0.75rem;
+  }
+
+  .chart-stat-value {
+    font-size: 0.85rem;
   }
 }
 
