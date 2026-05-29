@@ -2185,3 +2185,15 @@ html[data-theme="dark"] .chart-backdrop {
 .flash-down {
   animation: flash-red 2s ease-out;
 }
+
+
+/* Hide number input spin buttons */
+.pagination-goto-input::-webkit-inner-spin-button,
+.pagination-goto-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pagination-goto-input {
+  -moz-appearance: textfield;
+}
