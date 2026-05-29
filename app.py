@@ -12,6 +12,7 @@ from routes import register_blueprints
 from routes.ai import ask_limiter
 from services import get_dashboard_payload
 from services.ai import ai_enabled
+from services.compression import init_compression
 from services.telegram_alert import start_in_background as start_telegram_watcher
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -20,6 +21,7 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 BASE_DIR = Path(__file__).resolve().parent
 app = Flask(__name__, static_folder="frontend", static_url_path="")
 register_blueprints(app)
+init_compression(app)
 
 # Re-exported for tests and external callers that tweak the limiter.
 __all__ = ["app", "ask_limiter"]
