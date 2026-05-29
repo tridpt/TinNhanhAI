@@ -363,10 +363,11 @@ function renderSparkline(container, history, options = {}) {
   }
 
   // Filter out flat lines where all values are identical (no useful chart).
+  // Exception: still show for items with very few points (will accumulate over time).
   const uniqueValues = new Set(points.map((p) => Number(p.value)));
-  if (uniqueValues.size === 1) {
+  if (uniqueValues.size === 1 && points.length > 10) {
     container.classList.add("price-spark-empty");
-    container.textContent = `${options.formatTick ? options.formatTick([...uniqueValues][0]) : [...uniqueValues][0]} (không đổi)`;
+    container.textContent = `${formatTick([...uniqueValues][0])} (ổn định)`;
     return;
   }
   container.classList.remove("price-spark-empty");
