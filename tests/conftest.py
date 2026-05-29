@@ -43,13 +43,24 @@ def fast_rate_limiter():
 
 
 @pytest.fixture()
+def isolated_news_store(tmp_path, monkeypatch):
+    """Redirect ``services.news_store`` to a per-test SQLite file."""
+
+    from services import news_store
+
+    monkeypatch.setattr(news_store, "DB_PATH", tmp_path / "news.db")
+    yield news_store
+
+
+@pytest.fixture()
 def flask_client(monkeypatch, tmp_path):
     """Return a Flask test client with history isolated to ``tmp_path``."""
 
-    from services import history
+    from services import history, news_store
 
     monkeypatch.setattr(history, "DB_PATH", tmp_path / "client_history.db")
     monkeypatch.setattr(history, "_MIN_INTERVAL_SECONDS", -1)
+    monkeypatch.setattr(news_store, "DB_PATH", tmp_path / "client_news.db")
 
     import app as flask_app
 
