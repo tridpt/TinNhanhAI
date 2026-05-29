@@ -231,40 +231,94 @@ function renderNews(topic) {
     el.newsList.appendChild(node);
   });
 
-  // "Load more" button if there are more articles in the store.
-  const existingLoadMore = el.newsList.querySelector(".load-more-btn");
-  if (existingLoadMore) existingLoadMore.remove();
-  if (topic.has_more) {
-    const loadMoreBtn = document.createElement("button");
-    loadMoreBtn.type = "button";
-    loadMoreBtn.className = "load-more-btn primary-btn";
-    loadMoreBtn.textContent = `Xem thêm (${topic.total - (topic.offset || 0) - filtered.length} bài còn lại)`;
-    loadMoreBtn.addEventListener("click", () => loadMoreNews(topic));
-    el.newsList.appendChild(loadMoreBtn);
+  // Pagination controls.
+  const existingPagination = el.newsList.querySelector(".pagination");
+  if (existingPagination) existingPagination.remove();
+
+  const total = topic.total || filtered.length;
+  const perPage = topic.limit || 20;
+  const totalPages = Math.ceil(total / perPage);
+  const currentPage = Math.floor((topic.offset || 0) / perPage) + 1;
+
+  if (totalPages > 1) {
+    const pagination = document.createElement("div");
+    pagination.className = "pagination";
+
+    const prevBtn = document.createElement("button");
+    prevBtn.type = "button";
+    prevBtn.className = "pagination-btn";
+    prevBtn.innerHTML = `<i data-lucide="chevron-left"></i>`;
+    prevBtn.disabled = currentPage <= 1;
+    prevBtn.addEventListener("click", () => goToPage(topic, currentPage - 1));
+    pagination.appendChild(prevBtn);
+
+    const maxVisible = 7;
+    const pages = buildPageNumbers(currentPage, totalPages, maxVisible);
+    pages.forEach((p) => {
+      if (p === "...") {
+        const dots = document.createElement("span");
+        dots.className = "pagination-dots";
+        dots.textContent = "...";
+        pagination.appendChild(dots);
+      } else {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `pagination-btn${p === currentPage ? " active" : ""}`;
+        btn.textContent = String(p);
+        btn.addEventListener("click", () => goToPage(topic, p));
+        pagination.appendChild(btn);
+      }
+    });
+
+    const nextBtn = document.createElement("button");
+    nextBtn.type = "button";
+    nextBtn.className = "pagination-btn";
+    nextBtn.innerHTML = `<i data-lucide="chevron-right"></i>`;
+    nextBtn.disabled = currentPage >= totalPages;
+    nextBtn.addEventListener("click", () => goToPage(topic, currentPage + 1));
+    pagination.appendChild(nextBtn);
+
+    const info = document.createElement("span");
+    info.className = "pagination-info";
+    info.textContent = `Trang ${currentPage}/${totalPages} · ${total} bài`;
+    pagination.appendChild(info);
+
+    el.newsList.appendChild(pagination);
   }
 
   lucide.createIcons();
 }
 
-async function loadMoreNews(currentTopic) {
-  const nextOffset = (currentTopic.offset || 0) + (currentTopic.limit || 20);
+function buildPageNumbers(current, total, maxVisible) {
+  if (total <= maxVisible) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const pages = [];
+  pages.push(1);
+  let start = Math.max(2, current - 1);
+  let end = Math.min(total - 1, current + 1);
+  if (current <= 3) { start = 2; end = Math.min(total - 1, maxVisible - 2); }
+  if (current >= total - 2) { end = total - 1; start = Math.max(2, total - maxVisible + 3); }
+  if (start > 2) pages.push("...");
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (end < total - 1) pages.push("...");
+  pages.push(total);
+  return pages;
+}
+
+async function goToPage(currentTopic, page) {
+  const perPage = currentTopic.limit || 20;
+  const offset = (page - 1) * perPage;
   try {
-    const response = await fetch(`/api/news/${currentTopic.key}?offset=${nextOffset}&limit=20`);
+    const response = await fetch(`/api/news/${currentTopic.key}?offset=${offset}&limit=${perPage}`);
     const data = await response.json();
-    if (!data.items || !data.items.length) return;
-    // Merge new items into current topic data.
-    const merged = {
-      ...currentTopic,
-      items: [...(currentTopic.items || []), ...data.items],
-      offset: data.offset,
-      total: data.total,
-      has_more: data.has_more,
-    };
-    state.activeTopicData = merged;
-    // Re-render with all accumulated items.
-    renderNews(merged);
+    if (!data.items) return;
+    state.activeTopicData = data;
+    renderNews(data);
+    // Scroll news list into view.
+    el.newsList.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
-    console.error("Load more failed:", error);
+    console.error("Pagination failed:", error);
   }
 }
 
