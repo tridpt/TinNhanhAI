@@ -2197,3 +2197,36 @@ html[data-theme="dark"] .chart-backdrop {
 .pagination-goto-input {
   -moz-appearance: textfield;
 }
+
+
+/* Chart time range selector */
+.chart-range-bar {
+  display: flex;
+  gap: 4px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chart-range-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chart-range-btn:hover {
+  color: var(--text);
+  border-color: rgba(15, 118, 110, 0.3);
+}
+
+.chart-range-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}

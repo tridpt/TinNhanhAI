@@ -449,6 +449,7 @@ function openDetailChart(label, points, options = {}) {
           <h3 class="chart-title"></h3>
           <button class="chart-close icon-btn" type="button" title="Đóng"><i data-lucide="x"></i></button>
         </div>
+        <div class="chart-range-bar"></div>
         <div class="chart-body">
           <div class="chart-tooltip" hidden></div>
           <svg class="chart-svg"></svg>
@@ -466,7 +467,71 @@ function openDetailChart(label, points, options = {}) {
     lucide.createIcons();
   }
 
-  modal.querySelector(".chart-title").textContent = label || "Biểu đồ giá";
+  // Store full data for range switching.
+  modal._chartData = { label, allPoints: points, options };
+
+  // Render range buttons.
+  const rangeBar = modal.querySelector(".chart-range-bar");
+  const ranges = [
+    { key: "1d", label: "24h", hours: 24 },
+    { key: "3d", label: "3 ngày", hours: 72 },
+    { key: "7d", label: "7 ngày", hours: 168 },
+    { key: "1m", label: "1 tháng", hours: 720 },
+    { key: "3m", label: "3 tháng", hours: 2160 },
+    { key: "all", label: "Tất cả", hours: 0 },
+  ];
+  rangeBar.innerHTML = "";
+  ranges.forEach((range) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "chart-range-btn";
+    btn.textContent = range.label;
+    btn.dataset.range = range.key;
+    btn.addEventListener("click", () => {
+      rangeBar.querySelectorAll(".chart-range-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const filtered = filterPointsByRange(points, range.hours);
+      renderChartContent(modal, label, filtered, options);
+    });
+    rangeBar.appendChild(btn);
+  });
+
+  // Default: select best range based on data available.
+  const defaultRange = selectDefaultRange(points, ranges);
+  const defaultBtn = rangeBar.querySelector(`[data-range="${defaultRange.key}"]`);
+  if (defaultBtn) defaultBtn.classList.add("active");
+
+  const filtered = filterPointsByRange(points, defaultRange.hours);
+  renderChartContent(modal, label, filtered, options);
+
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+  lucide.createIcons();
+}
+
+function filterPointsByRange(points, hours) {
+  if (!hours || !points.length) return points;
+  const now = Math.max(...points.map((p) => p.ts));
+  const cutoff = now - hours * 3600;
+  const filtered = points.filter((p) => p.ts >= cutoff);
+  return filtered.length >= 2 ? filtered : points;
+}
+
+function selectDefaultRange(points, ranges) {
+  if (!points.length) return ranges[ranges.length - 1];
+  const oldest = Math.min(...points.map((p) => p.ts));
+  const newest = Math.max(...points.map((p) => p.ts));
+  const spanHours = (newest - oldest) / 3600;
+  // Pick the smallest range that covers most of the data.
+  if (spanHours <= 30) return ranges[0]; // 24h
+  if (spanHours <= 80) return ranges[1]; // 3d
+  if (spanHours <= 200) return ranges[2]; // 7d
+  if (spanHours <= 800) return ranges[3]; // 1m
+  return ranges[4]; // 3m
+}
+
+function renderChartContent(modal, label, points, options) {
+  const { formatTick = (v) => v.toLocaleString("vi-VN") } = options;
 
   const values = points.map((p) => Number(p.value));
   const min = Math.min(...values);
@@ -593,8 +658,7 @@ function openDetailChart(label, points, options = {}) {
     tooltip.hidden = true;
   });
 
-  modal.classList.add("open");
-  document.body.style.overflow = "hidden";
+  modal.querySelector(".chart-title").textContent = label || "Biểu đồ giá";
   lucide.createIcons();
 }
 
