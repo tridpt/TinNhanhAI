@@ -43,6 +43,7 @@ const LS_KEYS = {
   customCities: "tnai.watchlist.cities",
   customForex: "tnai.watchlist.forex",
   savedFilters: "tnai.savedfilters",
+  readHistory: "tnai.readhistory",
 };
 const RECENT_QUERIES_LIMIT = 8;
 const BOOKMARK_LIMIT = 200;
@@ -227,7 +228,7 @@ function renderNews(topic) {
     link.href = item.url || "#";
     link.addEventListener("click", (event) => {
       event.preventDefault();
-      openReader(item.url, item.title);
+      openReader(item.url, item.title, { source: item.source || "", topic: topic.key || state.activeTopic });
     });
     node.querySelector(".news-summary").textContent = item.summary || "Không có mô tả.";
 
@@ -495,7 +496,7 @@ function renderSearchResults(modal, items, filters) {
   resultsBox.querySelectorAll(".search-result-title").forEach((link, idx) => {
     link.addEventListener("click", (e) => {
       e.preventDefault();
-      openReader(items[idx].url, items[idx].title);
+      openReader(items[idx].url, items[idx].title, { source: items[idx].source || "", topic: items[idx].topic || "" });
     });
   });
   wireSaveFilter(modal, filters);
@@ -1190,8 +1191,15 @@ function renderPrices(cards) {
 
 // --- Article reader modal -----------------------------------------------------
 
-async function openReader(url, fallbackTitle) {
+async function openReader(url, fallbackTitle, meta = {}) {
   if (!url) return;
+  // Record into reading history (for the stats panel).
+  recordRead({
+    url,
+    title: fallbackTitle || "",
+    source: meta.source || "",
+    topic: meta.topic || "",
+  });
   showReaderModal(fallbackTitle || "Đang tải...", null, url);
 
   try {
@@ -1228,6 +1236,134 @@ function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
+}
+
+// --- Reading history & stats -------------------------------------------------
+
+const READ_HISTORY_LIMIT = 300;
+
+function loadReadHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEYS.readHistory) || "[]");
+  } catch (e) { return []; }
+}
+
+function recordRead(entry) {
+  if (!entry || !entry.url) return;
+  try {
+    const list = loadReadHistory();
+    // De-dupe: drop any previous entry for this URL, then prepend the new read.
+    const filtered = list.filter((e) => e.url !== entry.url);
+    filtered.unshift({
+      url: entry.url,
+      title: entry.title || "",
+      source: entry.source || "",
+      topic: entry.topic || "",
+      ts: Date.now(),
+    });
+    localStorage.setItem(LS_KEYS.readHistory, JSON.stringify(filtered.slice(0, READ_HISTORY_LIMIT)));
+  } catch (e) { /* quota/private mode */ }
+}
+
+function computeReadStats() {
+  const history = loadReadHistory();
+  const byTopic = {};
+  const bySource = {};
+  let last7 = 0;
+  const weekAgo = Date.now() - 7 * 86400 * 1000;
+  for (const e of history) {
+    if (e.topic) byTopic[e.topic] = (byTopic[e.topic] || 0) + 1;
+    if (e.source) bySource[e.source] = (bySource[e.source] || 0) + 1;
+    if (e.ts && e.ts >= weekAgo) last7 += 1;
+  }
+  const topTopics = Object.entries(byTopic).sort((a, b) => b[1] - a[1]);
+  const topSources = Object.entries(bySource).sort((a, b) => b[1] - a[1]);
+  return { total: history.length, last7, topTopics, topSources, recent: history.slice(0, 12) };
+}
+
+function openStatsModal() {
+  const stats = computeReadStats();
+  let modal = document.getElementById("stats-modal");
+  if (modal) modal.remove();
+  modal = document.createElement("div");
+  modal.id = "stats-modal";
+  modal.className = "search-modal";
+
+  let bodyHtml;
+  if (!stats.total) {
+    bodyHtml = `<p class="empty-state">Chưa có bài nào được đọc. Bấm vào một tin để bắt đầu thống kê.</p>`;
+  } else {
+    const maxTopic = stats.topTopics.length ? stats.topTopics[0][1] : 1;
+    const maxSource = stats.topSources.length ? stats.topSources[0][1] : 1;
+    const topicBars = stats.topTopics.map(([key, n]) => {
+      const label = topicMeta[key]?.label || key;
+      return `
+        <div class="stat-bar-row">
+          <span class="stat-bar-label">${label}</span>
+          <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${(n / maxTopic * 100).toFixed(0)}%"></span></span>
+          <span class="stat-bar-num">${n}</span>
+        </div>`;
+    }).join("");
+    const sourceBars = stats.topSources.slice(0, 8).map(([src, n]) => `
+      <div class="stat-bar-row">
+        <span class="stat-bar-label">${escapeHtml(src)}</span>
+        <span class="stat-bar-track"><span class="stat-bar-fill alt" style="width:${(n / maxSource * 100).toFixed(0)}%"></span></span>
+        <span class="stat-bar-num">${n}</span>
+      </div>`).join("");
+    const recent = stats.recent.map((e) => `
+      <li><a href="${e.url}" data-url="${encodeURIComponent(e.url)}" class="stat-recent-link">${escapeHtml(e.title || e.url)}</a>
+        <span class="stat-recent-meta">${escapeHtml(e.source || "")}</span></li>`).join("");
+
+    bodyHtml = `
+      <div class="stat-cards">
+        <div class="stat-card"><span class="stat-card-num">${stats.total}</span><span class="stat-card-label">Bài đã đọc</span></div>
+        <div class="stat-card"><span class="stat-card-num">${stats.last7}</span><span class="stat-card-label">7 ngày qua</span></div>
+        <div class="stat-card"><span class="stat-card-num">${stats.topTopics.length}</span><span class="stat-card-label">Chủ đề</span></div>
+      </div>
+      ${topicBars ? `<h4 class="stat-section-title">Chủ đề quan tâm</h4><div class="stat-bars">${topicBars}</div>` : ""}
+      ${sourceBars ? `<h4 class="stat-section-title">Nguồn hay đọc</h4><div class="stat-bars">${sourceBars}</div>` : ""}
+      <h4 class="stat-section-title">Đọc gần đây</h4>
+      <ul class="stat-recent">${recent}</ul>
+      <button type="button" class="chip stat-clear-btn"><i data-lucide="trash-2"></i> Xóa lịch sử đọc</button>
+    `;
+  }
+
+  modal.innerHTML = `
+    <div class="search-backdrop"></div>
+    <div class="search-dialog">
+      <div class="search-dialog-head">
+        <h3><i data-lucide="bar-chart-3"></i> Thống kê đọc của bạn</h3>
+        <button type="button" class="search-close icon-btn" aria-label="Đóng"><i data-lucide="x"></i></button>
+      </div>
+      <div class="search-results stats-body">${bodyHtml}</div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  const close = () => { modal.classList.remove("open"); setTimeout(() => modal.remove(), 200); };
+  modal.querySelector(".search-backdrop").addEventListener("click", close);
+  modal.querySelector(".search-close").addEventListener("click", close);
+  document.addEventListener("keydown", function esc(e) {
+    if (e.key === "Escape" && document.getElementById("stats-modal")) { close(); document.removeEventListener("keydown", esc); }
+  });
+
+  modal.querySelectorAll(".stat-recent-link").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      close();
+      openReader(decodeURIComponent(link.dataset.url), link.textContent);
+    });
+  });
+  const clearBtn = modal.querySelector(".stat-clear-btn");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      localStorage.removeItem(LS_KEYS.readHistory);
+      close();
+    });
+  }
+
+  modal.classList.add("open");
+  lucide.createIcons();
 }
 
 // Render a friendly error inside the summary box with a "Thử lại" button.
@@ -3301,6 +3437,8 @@ function bindEvents() {
   if (compareCryptoBtn) compareCryptoBtn.addEventListener("click", () => openCompareModal("crypto"));
   const advSearchBtn = document.getElementById("advanced-search-btn");
   if (advSearchBtn) advSearchBtn.addEventListener("click", openAdvancedSearch);
+  const statsBtn = document.getElementById("stats-btn");
+  if (statsBtn) statsBtn.addEventListener("click", openStatsModal);
   const addForexBtn = document.getElementById("add-forex-btn");
   if (addForexBtn) addForexBtn.addEventListener("click", promptAddForex);
   const locateBtn = document.getElementById("locate-weather-btn");

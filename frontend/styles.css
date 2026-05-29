@@ -3323,3 +3323,137 @@ body.is-offline .topbar {
     height: 48px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Reading stats modal (reuses .search-modal / .search-dialog shell)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.stats-body {
+  padding: 16px 20px 20px;
+}
+
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(45, 212, 191, 0.06);
+}
+
+.stat-card-num {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--accent, #0d9488);
+  line-height: 1;
+}
+
+.stat-card-label {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.stat-section-title {
+  margin: 16px 0 8px;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.stat-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.stat-bar-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 32px;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.stat-bar-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.stat-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.15);
+  overflow: hidden;
+}
+
+.stat-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent, #0d9488);
+  transition: width 0.4s ease-out;
+}
+
+.stat-bar-fill.alt {
+  background: #2563eb;
+}
+
+.stat-bar-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.stat-recent {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-recent li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.stat-recent-link {
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.stat-recent-link:hover {
+  color: var(--accent, #0d9488);
+}
+
+.stat-recent-meta {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.stat-clear-btn {
+  color: var(--negative, #dc2626);
+}
+
+@media (max-width: 640px) {
+  .stat-bar-row {
+    grid-template-columns: 90px 1fr 28px;
+    font-size: 0.78rem;
+  }
+}
