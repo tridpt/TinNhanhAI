@@ -258,6 +258,7 @@ def weather_location():
                 "longitude": lon,
                 "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature",
                 "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                "hourly": "temperature_2m,weather_code,precipitation_probability",
                 "timezone": "auto",
                 "forecast_days": 5,
             },
@@ -273,6 +274,12 @@ def weather_location():
     label, icon = _describe_code(code)
 
     daily = data.get("daily") or {}
+    hourly = data.get("hourly") or {}
+    hourly_times = hourly.get("time") or []
+    hourly_temps = hourly.get("temperature_2m") or []
+    hourly_codes = hourly.get("weather_code") or []
+    hourly_rain = hourly.get("precipitation_probability") or []
+
     forecast = []
     for i, date_str in enumerate(daily.get("time") or []):
         day_code = (daily.get("weather_code") or [])[i] if i < len(daily.get("weather_code") or []) else None
@@ -280,6 +287,17 @@ def weather_location():
         maxs = daily.get("temperature_2m_max") or []
         mins = daily.get("temperature_2m_min") or []
         rains = daily.get("precipitation_probability_max") or []
+
+        hours = []
+        for h_idx, h_time in enumerate(hourly_times):
+            if h_time.startswith(date_str):
+                hours.append({
+                    "time": h_time[11:16],
+                    "temp": hourly_temps[h_idx] if h_idx < len(hourly_temps) else None,
+                    "code": hourly_codes[h_idx] if h_idx < len(hourly_codes) else None,
+                    "rain": hourly_rain[h_idx] if h_idx < len(hourly_rain) else None,
+                })
+
         forecast.append({
             "date": date_str,
             "day_label": _format_day(date_str),
@@ -288,6 +306,7 @@ def weather_location():
             "temp_max": maxs[i] if i < len(maxs) else None,
             "temp_min": mins[i] if i < len(mins) else None,
             "rain_prob": rains[i] if i < len(rains) else None,
+            "hours": hours,
         })
 
     temp = current.get("temperature_2m")

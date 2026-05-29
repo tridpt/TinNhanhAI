@@ -37,6 +37,7 @@ const LS_KEYS = {
   bookmarks: "tnai.bookmarks",
   customStocks: "tnai.watchlist.stocks",
   customCrypto: "tnai.watchlist.crypto",
+  customCities: "tnai.watchlist.cities",
 };
 const RECENT_QUERIES_LIMIT = 8;
 const BOOKMARK_LIMIT = 200;
@@ -2035,6 +2036,8 @@ function locateAndAddWeather() {
         const response = await fetch(`/api/weather/location?lat=${latitude}&lon=${longitude}&name=Vị trí của tôi`);
         const data = await response.json();
         if (data.error) throw new Error(data.error);
+        // Save to localStorage for persistence.
+        saveCustomCity({ lat: latitude, lon: longitude, name: "Vị trí của tôi" });
         appendWeatherCard(data);
       } catch (e) {
         console.error("Weather location failed:", e);
@@ -2105,6 +2108,7 @@ function promptAddCity() {
       const weatherData = await weatherRes.json();
       if (weatherData.error) throw new Error(weatherData.error);
       appendWeatherCard(weatherData);
+      saveCustomCity({ lat: result.latitude, lon: result.longitude, name: result.name });
       close();
     } catch (err) {
       console.error(err);
@@ -2119,8 +2123,8 @@ function promptAddCity() {
 
 function appendWeatherCard(city) {
   if (!el.weatherList) return;
-  const forecast = (city.forecast || []).map((day) => `
-    <div class="forecast-day">
+  const forecast = (city.forecast || []).map((day, idx) => `
+    <div class="forecast-day" data-day-idx="${idx}" style="cursor:pointer" title="Bấm xem theo giờ">
       <span class="forecast-date">${day.day_label || day.date || ""}</span>
       <i data-lucide="${day.icon || "cloud"}"></i>
       <span class="forecast-temps">${day.temp_min != null ? Math.round(day.temp_min) : "?"}° / ${day.temp_max != null ? Math.round(day.temp_max) : "?"}°</span>
@@ -2130,6 +2134,7 @@ function appendWeatherCard(city) {
 
   const card = document.createElement("article");
   card.className = "weather-card custom-card";
+  card.dataset.cityName = city.city || "";
   card.innerHTML = `
     <button class="remove-watchlist-btn" type="button" title="Xóa">
       <i data-lucide="x"></i>
@@ -2148,10 +2153,69 @@ function appendWeatherCard(city) {
       <li><i data-lucide="wind"></i><span>Gió ${city.wind_text || "—"}</span></li>
     </ul>
     ${forecast ? `<div class="forecast-row">${forecast}</div>` : ""}
+    <div class="hourly-detail" hidden></div>
   `;
-  card.querySelector(".remove-watchlist-btn").addEventListener("click", () => card.remove());
+  card.querySelector(".remove-watchlist-btn").addEventListener("click", () => {
+    removeCustomCity(city.city || "");
+    card.remove();
+  });
+  // Hourly expand on forecast day click.
+  card.querySelectorAll(".forecast-day").forEach((dayEl) => {
+    dayEl.addEventListener("click", () => {
+      const idx = parseInt(dayEl.dataset.dayIdx, 10);
+      const day = (city.forecast || [])[idx];
+      if (!day || !day.hours || !day.hours.length) return;
+      const hourlyDiv = card.querySelector(".hourly-detail");
+      const isOpen = !hourlyDiv.hidden && hourlyDiv.dataset.idx === String(idx);
+      if (isOpen) { hourlyDiv.hidden = true; return; }
+      hourlyDiv.dataset.idx = String(idx);
+      hourlyDiv.hidden = false;
+      hourlyDiv.innerHTML = `
+        <div class="hourly-header">${day.day_label} — Dự báo theo giờ</div>
+        <div class="hourly-grid">
+          ${day.hours.filter((_, i) => i % 3 === 0).map((h) => `
+            <div class="hourly-item">
+              <span class="hourly-time">${h.time}</span>
+              <span class="hourly-temp">${h.temp != null ? Math.round(h.temp) + "°" : ""}</span>
+              <span class="hourly-rain">${h.rain != null ? h.rain + "%" : ""}</span>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    });
+  });
   el.weatherList.appendChild(card);
   lucide.createIcons();
+}
+
+function saveCustomCity(city) {
+  try {
+    const list = JSON.parse(localStorage.getItem(LS_KEYS.customCities) || "[]");
+    if (list.some((c) => c.name === city.name)) return;
+    list.push(city);
+    localStorage.setItem(LS_KEYS.customCities, JSON.stringify(list.slice(-10)));
+  } catch (e) { /* ignore */ }
+}
+
+function removeCustomCity(name) {
+  try {
+    const list = JSON.parse(localStorage.getItem(LS_KEYS.customCities) || "[]");
+    const filtered = list.filter((c) => c.name !== name);
+    localStorage.setItem(LS_KEYS.customCities, JSON.stringify(filtered));
+  } catch (e) { /* ignore */ }
+}
+
+async function loadSavedWeatherCities() {
+  try {
+    const list = JSON.parse(localStorage.getItem(LS_KEYS.customCities) || "[]");
+    for (const city of list) {
+      try {
+        const response = await fetch(`/api/weather/location?lat=${city.lat}&lon=${city.lon}&name=${encodeURIComponent(city.name)}`);
+        const data = await response.json();
+        if (!data.error) appendWeatherCard(data);
+      } catch (e) { /* skip */ }
+    }
+  } catch (e) { /* ignore */ }
 }
 
 function bindEvents() {
@@ -2287,6 +2351,7 @@ async function init() {
   await loadDashboard(false);
   fetchCustomStocks();
   fetchCustomCrypto();
+  loadSavedWeatherCities();
   startAutoRefresh();
   registerServiceWorker();
 }
