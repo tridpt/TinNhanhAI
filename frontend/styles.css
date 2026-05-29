@@ -2132,3 +2132,36 @@ html[data-theme="dark"] .chart-backdrop {
     font-size: 0.78rem;
   }
 }
+
+
+.pagination-goto {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.pagination-goto-input {
+  width: 60px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+  font-size: 0.85rem;
+  padding: 0 6px;
+}
+
+.pagination-goto-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .pagination-goto-input {
+    width: 50px;
+    height: 30px;
+    font-size: 0.78rem;
+  }
+}

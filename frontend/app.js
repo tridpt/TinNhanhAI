@@ -11,6 +11,7 @@ const state = {
   knownUrls: new Set(),
   newItemCount: 0,
   autoRefreshTimerId: null,
+  marketRefreshTimerId: null,
 };
 
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
@@ -294,6 +295,18 @@ function renderNews(topic) {
     info.className = "pagination-info";
     info.textContent = `Trang ${currentPage}/${totalPages} · ${total} bài`;
     pagination.appendChild(info);
+
+    // "Go to page" input.
+    const goToForm = document.createElement("form");
+    goToForm.className = "pagination-goto";
+    goToForm.innerHTML = `<input type="number" min="1" max="${totalPages}" placeholder="Trang..." class="pagination-goto-input"><button type="submit" class="pagination-btn">Đi</button>`;
+    goToForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = goToForm.querySelector("input");
+      const page = parseInt(input.value, 10);
+      if (page >= 1 && page <= totalPages) goToPage(topic, page);
+    });
+    pagination.appendChild(goToForm);
 
     el.newsList.appendChild(pagination);
   }
@@ -1236,16 +1249,52 @@ function renderSkeletons() {
 
 function startAutoRefresh() {
   stopAutoRefresh();
+  // Full dashboard refresh every 5 minutes.
   state.autoRefreshTimerId = setInterval(() => {
     if (document.visibilityState === "hidden") return;
     loadDashboard(false, { silent: true });
   }, AUTO_REFRESH_MS);
+
+  // Market data (prices, crypto, stocks) refresh every 60 seconds.
+  state.marketRefreshTimerId = setInterval(() => {
+    if (document.visibilityState === "hidden") return;
+    refreshMarkets();
+  }, 60_000);
 }
 
 function stopAutoRefresh() {
   if (state.autoRefreshTimerId !== null) {
     clearInterval(state.autoRefreshTimerId);
     state.autoRefreshTimerId = null;
+  }
+  if (state.marketRefreshTimerId !== null) {
+    clearInterval(state.marketRefreshTimerId);
+    state.marketRefreshTimerId = null;
+  }
+}
+
+async function refreshMarkets() {
+  try {
+    const [pricesRes, cryptoRes, stocksRes] = await Promise.allSettled([
+      fetch("/api/prices"),
+      fetch("/api/crypto"),
+      fetch("/api/stocks"),
+    ]);
+    if (pricesRes.status === "fulfilled" && pricesRes.value.ok) {
+      const data = await pricesRes.value.json();
+      renderPrices(data.cards || []);
+      renderVnPrices(data.vn_cards || []);
+    }
+    if (cryptoRes.status === "fulfilled" && cryptoRes.value.ok) {
+      const data = await cryptoRes.value.json();
+      renderCrypto(data.cards || []);
+    }
+    if (stocksRes.status === "fulfilled" && stocksRes.value.ok) {
+      const data = await stocksRes.value.json();
+      renderStocks(data.cards || []);
+    }
+  } catch (error) {
+    // Silent fail — markets will update on next cycle.
   }
 }
 
