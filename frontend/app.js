@@ -555,31 +555,35 @@ function openDetailChart(label, points, options = {}) {
   chartBody.addEventListener("mousemove", (e) => {
     const rect = svg.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
-    // Account for padX in the SVG viewBox: the chart area starts at padX/width
-    // of the rendered element and ends at (width-padX)/width.
-    const padRatio = padX / width;
-    const chartStartPx = rect.width * padRatio;
-    const chartEndPx = rect.width * (1 - padRatio);
-    const chartWidthPx = chartEndPx - chartStartPx;
-    const clampedX = Math.max(0, Math.min(mouseX - chartStartPx, chartWidthPx));
-    const ratio = clampedX / chartWidthPx;
-    const idx = Math.round(ratio * (coords.length - 1));
-    if (idx < 0 || idx >= coords.length) return;
-    const c = coords[idx];
+    // Convert pixel position to SVG viewBox X coordinate directly.
+    const svgX = (mouseX / rect.width) * width;
+    // Find the closest data point by comparing SVG X coordinates.
+    let closestIdx = 0;
+    let closestDist = Infinity;
+    for (let i = 0; i < coords.length; i++) {
+      const dist = Math.abs(coords[i].x - svgX);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestIdx = i;
+      }
+    }
+    const c = coords[closestIdx];
 
-    crosshair.setAttribute("x1", c.x.toFixed(1));
-    crosshair.setAttribute("x2", c.x.toFixed(1));
+    // Position crosshair at the mouse's SVG X (not the data point X)
+    // so it tracks the cursor exactly.
+    crosshair.setAttribute("x1", svgX.toFixed(1));
+    crosshair.setAttribute("x2", svgX.toFixed(1));
     crosshair.setAttribute("opacity", "1");
     dot.setAttribute("cx", c.x.toFixed(1));
     dot.setAttribute("cy", c.y.toFixed(1));
     dot.setAttribute("opacity", "1");
 
-    const ts = points[idx]?.ts;
+    const ts = points[closestIdx]?.ts;
     const date = ts ? new Date(ts * 1000) : null;
     const dateStr = date ? date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
     tooltip.textContent = `${dateStr}  ·  ${formatTick(c.value)}`;
     tooltip.hidden = false;
-    tooltip.style.left = `${Math.min(Math.max((c.x / width) * 100, 10), 90)}%`;
+    tooltip.style.left = `${Math.min(Math.max((mouseX / rect.width) * 100, 10), 90)}%`;
   });
 
   chartBody.addEventListener("mouseleave", () => {
