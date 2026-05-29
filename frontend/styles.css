@@ -782,6 +782,10 @@ button {
   min-height: 60px;
 }
 
+.answer-tab-panel[hidden] {
+  display: none !important;
+}
+
 .answer-summary {
   margin: 0;
   white-space: pre-wrap;
