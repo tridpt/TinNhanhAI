@@ -35,8 +35,10 @@ fly apps create tinnhanh-ai
 # Tạo persistent volume 1 GB cho cache + history DB + telegram state.
 fly volumes create tinnhanh_data --region sin --size 1 --yes
 
-# (Tùy chọn) Set OpenAI key để bật phần tóm tắt AI.
-fly secrets set OPENAI_API_KEY=sk-... OPENAI_MODEL=gpt-4o-mini
+# (Tùy chọn) Set key AI để bật tóm tắt/hỏi AI. Ưu tiên Gemini (free tier rộng).
+fly secrets set GEMINI_API_KEY=AIza... GEMINI_MODEL=gemini-2.5-flash-lite
+# Hoặc dùng OpenAI:
+# fly secrets set OPENAI_API_KEY=sk-... OPENAI_MODEL=gpt-4o-mini
 
 # (Tùy chọn) Set Telegram credentials để bật alert watcher.
 fly secrets set TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=... TELEGRAM_KEYWORDS="vàng,iPhone"
