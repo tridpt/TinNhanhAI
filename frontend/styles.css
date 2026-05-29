@@ -2423,3 +2423,69 @@ html[data-theme="dark"] .chart-backdrop {
   font-size: 10.5px;
   color: var(--muted);
 }
+
+
+/* Hourly weather detail */
+.hourly-detail {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.hourly-header {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.hourly-grid {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hourly-grid::-webkit-scrollbar {
+  display: none;
+}
+
+.hourly-item {
+  flex: 0 0 auto;
+  min-width: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.hourly-item:hover {
+  background: var(--surface-soft);
+}
+
+.hourly-time {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.hourly-temp {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.hourly-rain {
+  color: var(--accent-2);
+  font-size: 0.68rem;
+}
+
+.forecast-day:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+}

@@ -72,6 +72,9 @@ def fetch_weather() -> list[dict[str, Any]]:
                         "weather_code,temperature_2m_max,temperature_2m_min,"
                         "precipitation_probability_max"
                     ),
+                    "hourly": (
+                        "temperature_2m,weather_code,precipitation_probability"
+                    ),
                     "timezone": "Asia/Ho_Chi_Minh",
                     "forecast_days": 5,
                 },
@@ -96,6 +99,12 @@ def fetch_weather() -> list[dict[str, Any]]:
 
         # Build 5-day forecast from daily data
         daily = data.get("daily") or {}
+        hourly = data.get("hourly") or {}
+        hourly_times = hourly.get("time") or []
+        hourly_temps = hourly.get("temperature_2m") or []
+        hourly_codes = hourly.get("weather_code") or []
+        hourly_rain = hourly.get("precipitation_probability") or []
+
         forecast: list[dict[str, Any]] = []
         dates = daily.get("time") or []
         codes = daily.get("weather_code") or []
@@ -106,6 +115,18 @@ def fetch_weather() -> list[dict[str, Any]]:
         for i, date_str in enumerate(dates):
             day_code = codes[i] if i < len(codes) else None
             day_label, day_icon = _describe_code(day_code)
+
+            # Extract hourly data for this day.
+            hours: list[dict[str, Any]] = []
+            for h_idx, h_time in enumerate(hourly_times):
+                if h_time.startswith(date_str):
+                    hours.append({
+                        "time": h_time[11:16],  # "HH:MM"
+                        "temp": hourly_temps[h_idx] if h_idx < len(hourly_temps) else None,
+                        "code": hourly_codes[h_idx] if h_idx < len(hourly_codes) else None,
+                        "rain": hourly_rain[h_idx] if h_idx < len(hourly_rain) else None,
+                    })
+
             forecast.append(
                 {
                     "date": date_str,
@@ -115,6 +136,7 @@ def fetch_weather() -> list[dict[str, Any]]:
                     "temp_max": maxs[i] if i < len(maxs) else None,
                     "temp_min": mins[i] if i < len(mins) else None,
                     "rain_prob": rain_probs[i] if i < len(rain_probs) else None,
+                    "hours": hours,
                 }
             )
 

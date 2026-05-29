@@ -829,8 +829,8 @@ function renderWeather(cities) {
   }
   el.weatherList.innerHTML = "";
   cities.forEach((city) => {
-    const forecast = (city.forecast || []).map((day) => `
-      <div class="forecast-day">
+    const forecast = (city.forecast || []).map((day, idx) => `
+      <div class="forecast-day" data-day-idx="${idx}" style="cursor:pointer" title="Bấm xem theo giờ">
         <span class="forecast-date">${day.day_label || day.date || ""}</span>
         <i data-lucide="${day.icon || "cloud"}"></i>
         <span class="forecast-temps">${day.temp_min != null ? Math.round(day.temp_min) : "?"}° / ${day.temp_max != null ? Math.round(day.temp_max) : "?"}°</span>
@@ -855,7 +855,38 @@ function renderWeather(cities) {
         <li><i data-lucide="wind"></i><span>Gió ${city.wind_text || "—"}</span></li>
       </ul>
       ${forecast ? `<div class="forecast-row">${forecast}</div>` : ""}
+      <div class="hourly-detail" hidden></div>
     `;
+
+    // Click forecast day → show hourly.
+    card.querySelectorAll(".forecast-day").forEach((dayEl) => {
+      dayEl.addEventListener("click", () => {
+        const idx = parseInt(dayEl.dataset.dayIdx, 10);
+        const day = (city.forecast || [])[idx];
+        if (!day || !day.hours || !day.hours.length) return;
+        const hourlyDiv = card.querySelector(".hourly-detail");
+        const isOpen = !hourlyDiv.hidden && hourlyDiv.dataset.idx === String(idx);
+        if (isOpen) {
+          hourlyDiv.hidden = true;
+          return;
+        }
+        hourlyDiv.dataset.idx = String(idx);
+        hourlyDiv.hidden = false;
+        hourlyDiv.innerHTML = `
+          <div class="hourly-header">${day.day_label} — Dự báo theo giờ</div>
+          <div class="hourly-grid">
+            ${day.hours.filter((_, i) => i % 3 === 0).map((h) => `
+              <div class="hourly-item">
+                <span class="hourly-time">${h.time}</span>
+                <span class="hourly-temp">${h.temp != null ? Math.round(h.temp) + "°" : ""}</span>
+                <span class="hourly-rain">${h.rain != null ? h.rain + "%" : ""}</span>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      });
+    });
+
     el.weatherList.appendChild(card);
   });
   lucide.createIcons();
