@@ -824,11 +824,15 @@ function closeReader() {
 
 function renderWeather(cities) {
   if (!el.weatherList) return;
+  // Only clear default cards, preserve custom (user-added) cards.
+  el.weatherList.querySelectorAll(".weather-card:not(.custom-card)").forEach((el) => el.remove());
+  el.weatherList.querySelectorAll(".empty-state").forEach((el) => el.remove());
   if (!cities || !cities.length) {
-    el.weatherList.innerHTML = `<div class="empty-state">Chưa lấy được thời tiết.</div>`;
+    if (!el.weatherList.querySelector(".custom-card")) {
+      el.weatherList.insertAdjacentHTML("afterbegin", `<div class="empty-state">Chưa lấy được thời tiết.</div>`);
+    }
     return;
   }
-  el.weatherList.innerHTML = "";
   cities.forEach((city) => {
     const forecast = (city.forecast || []).map((day, idx) => `
       <div class="forecast-day" data-day-idx="${idx}" style="cursor:pointer" title="Bấm xem theo giờ">
@@ -888,7 +892,13 @@ function renderWeather(cities) {
       });
     });
 
-    el.weatherList.appendChild(card);
+    // Insert before custom cards.
+    const firstCustom = el.weatherList.querySelector(".custom-card");
+    if (firstCustom) {
+      el.weatherList.insertBefore(card, firstCustom);
+    } else {
+      el.weatherList.appendChild(card);
+    }
   });
   lucide.createIcons();
 }
