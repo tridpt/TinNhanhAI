@@ -827,13 +827,18 @@ function renderWeather(cities) {
   // Only clear default cards, preserve custom (user-added) cards.
   el.weatherList.querySelectorAll(".weather-card:not(.custom-card)").forEach((el) => el.remove());
   el.weatherList.querySelectorAll(".empty-state").forEach((el) => el.remove());
-  if (!cities || !cities.length) {
+
+  // Filter out cities the user has hidden.
+  const hidden = getHiddenCities();
+  const visibleCities = (cities || []).filter((c) => !hidden.includes(c.key || c.city || ""));
+
+  if (!visibleCities.length) {
     if (!el.weatherList.querySelector(".custom-card")) {
       el.weatherList.insertAdjacentHTML("afterbegin", `<div class="empty-state">Chưa lấy được thời tiết.</div>`);
     }
     return;
   }
-  cities.forEach((city) => {
+  visibleCities.forEach((city) => {
     const forecast = (city.forecast || []).map((day, idx) => `
       <div class="forecast-day" data-day-idx="${idx}" style="cursor:pointer" title="Bấm xem theo giờ">
         <span class="forecast-date">${day.day_label || day.date || ""}</span>
@@ -845,7 +850,11 @@ function renderWeather(cities) {
 
     const card = document.createElement("article");
     card.className = "weather-card";
+    card.dataset.cityKey = city.key || city.city || "";
     card.innerHTML = `
+      <button class="remove-watchlist-btn" type="button" title="Ẩn thành phố này">
+        <i data-lucide="x"></i>
+      </button>
       <div class="weather-head">
         <span class="weather-icon"><i data-lucide="${city.icon || "cloud"}"></i></span>
         <div>
@@ -890,6 +899,13 @@ function renderWeather(cities) {
           </div>
         `;
       });
+    });
+
+    // Remove button handler.
+    card.querySelector(".remove-watchlist-btn").addEventListener("click", () => {
+      const key = city.key || city.city || "";
+      hideDefaultCity(key);
+      card.remove();
     });
 
     // Insert before custom cards.
@@ -2030,6 +2046,20 @@ function appendCustomCards(container, cards, type) {
 }
 
 // --- Custom weather locations ------------------------------------------------
+
+function getHiddenCities() {
+  try {
+    return JSON.parse(localStorage.getItem("tnai.weather.hidden") || "[]");
+  } catch (e) { return []; }
+}
+
+function hideDefaultCity(key) {
+  try {
+    const list = getHiddenCities();
+    if (!list.includes(key)) list.push(key);
+    localStorage.setItem("tnai.weather.hidden", JSON.stringify(list));
+  } catch (e) { /* ignore */ }
+}
 
 function locateAndAddWeather() {
   if (!navigator.geolocation) {
