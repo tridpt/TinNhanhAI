@@ -38,6 +38,7 @@ const LS_KEYS = {
   customStocks: "tnai.watchlist.stocks",
   customCrypto: "tnai.watchlist.crypto",
   customCities: "tnai.watchlist.cities",
+  customForex: "tnai.watchlist.forex",
 };
 const RECENT_QUERIES_LIMIT = 8;
 const BOOKMARK_LIMIT = 200;
@@ -1893,7 +1894,113 @@ function exportPricesCsv() {
   downloadCsv(`tinnhanh-prices-${stamp}.csv`, rows);
 }
 
-// --- Custom watchlist ---------------------------------------------------------
+// --- Custom forex ------------------------------------------------------------
+
+let _availableForexCodes = null;
+
+async function fetchAvailableForex() {
+  if (_availableForexCodes) return _availableForexCodes;
+  try {
+    const r = await fetch("/api/forex/custom?codes=USD");
+    const data = await r.json();
+    _availableForexCodes = data.available || [];
+    return _availableForexCodes;
+  } catch (e) {
+    return [];
+  }
+}
+
+async function fetchCustomForex() {
+  const codes = JSON.parse(localStorage.getItem(LS_KEYS.customForex) || "[]");
+  if (!codes.length) return;
+  try {
+    const response = await fetch(`/api/forex/custom?codes=${encodeURIComponent(codes.join(","))}`);
+    const data = await response.json();
+    appendCustomForexCards(data.cards || []);
+  } catch (e) { /* silent */ }
+}
+
+function appendCustomForexCards(cards) {
+  if (!el.forexList) return;
+  el.forexList.querySelectorAll(".custom-card").forEach((c) => c.remove());
+  cards.forEach((card) => {
+    const node = el.vnPriceTemplate.content.firstElementChild.cloneNode(true);
+    node.classList.add("custom-card");
+    const icon = node.querySelector(".price-icon i");
+    icon.setAttribute("data-lucide", card.icon || "banknote");
+    node.querySelector(".price-label").textContent = card.label || "";
+    node.querySelector(".price-symbol").textContent = card.unit || "";
+    node.querySelector(".price-value").textContent = card.price_text || "";
+    node.querySelector(".price-unit").textContent = "";
+    const providerEl = node.querySelector(".price-provider");
+    if (providerEl) providerEl.textContent = card.provider || "";
+    node.querySelector(".price-updated").textContent = `Cập nhật: ${card.updated_label || ""}`;
+
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "remove-watchlist-btn";
+    removeBtn.type = "button";
+    removeBtn.innerHTML = `<i data-lucide="x"></i>`;
+    removeBtn.title = "Xóa";
+    removeBtn.addEventListener("click", () => {
+      const list = JSON.parse(localStorage.getItem(LS_KEYS.customForex) || "[]");
+      const filtered = list.filter((c) => c !== card.symbol);
+      localStorage.setItem(LS_KEYS.customForex, JSON.stringify(filtered));
+      node.remove();
+    });
+    node.appendChild(removeBtn);
+    el.forexList.appendChild(node);
+  });
+  lucide.createIcons();
+}
+
+async function promptAddForex() {
+  const available = await fetchAvailableForex();
+  // Exclude already-displayed defaults and saved customs.
+  const defaults = ["USD", "EUR", "JPY", "GBP", "AUD", "SGD", "CNY", "KRW"];
+  const saved = JSON.parse(localStorage.getItem(LS_KEYS.customForex) || "[]");
+  const remaining = available.filter((c) => !defaults.includes(c) && !saved.includes(c));
+
+  let overlay = document.getElementById("forex-modal");
+  if (overlay) overlay.remove();
+
+  overlay = document.createElement("div");
+  overlay.id = "forex-modal";
+  overlay.className = "watchlist-modal";
+  overlay.innerHTML = `
+    <div class="watchlist-backdrop"></div>
+    <div class="watchlist-dialog">
+      <h3>Thêm tỷ giá ngoại tệ</h3>
+      <p class="muted">${remaining.length ? "Chọn loại tiền tệ Vietcombank hỗ trợ:" : "Bạn đã thêm hết các loại Vietcombank hỗ trợ."}</p>
+      <div class="forex-options">
+        ${remaining.map((c) => `<button type="button" class="forex-option" data-code="${c}">${c}</button>`).join("")}
+      </div>
+      <div class="watchlist-actions">
+        <button type="button" class="watchlist-cancel chip" style="flex:1">Đóng</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+  overlay.querySelector(".watchlist-cancel").addEventListener("click", close);
+  overlay.querySelector(".watchlist-backdrop").addEventListener("click", close);
+
+  overlay.querySelectorAll(".forex-option").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const code = btn.dataset.code;
+      const list = JSON.parse(localStorage.getItem(LS_KEYS.customForex) || "[]");
+      if (!list.includes(code)) {
+        list.push(code);
+        localStorage.setItem(LS_KEYS.customForex, JSON.stringify(list));
+      }
+      btn.disabled = true;
+      btn.textContent = `${code} ✓`;
+      await fetchCustomForex();
+    });
+  });
+}
+
+// --- Custom watchlist (stocks/crypto) ----------------------------------------
 
 function loadWatchlist(key) {
   try {
@@ -2352,6 +2459,8 @@ function bindEvents() {
   if (addStockBtn) addStockBtn.addEventListener("click", () => promptAddSymbol("stock"));
   const addCryptoBtn = document.getElementById("add-crypto-btn");
   if (addCryptoBtn) addCryptoBtn.addEventListener("click", () => promptAddSymbol("crypto"));
+  const addForexBtn = document.getElementById("add-forex-btn");
+  if (addForexBtn) addForexBtn.addEventListener("click", promptAddForex);
   const locateBtn = document.getElementById("locate-weather-btn");
   if (locateBtn) locateBtn.addEventListener("click", locateAndAddWeather);
   const addCityBtn = document.getElementById("add-city-btn");
@@ -2447,6 +2556,7 @@ async function init() {
   await loadDashboard(false);
   fetchCustomStocks();
   fetchCustomCrypto();
+  fetchCustomForex();
   loadSavedWeatherCities();
   startAutoRefresh();
   registerServiceWorker();

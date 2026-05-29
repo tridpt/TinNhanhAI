@@ -340,6 +340,66 @@ def prices_history():
     return jsonify({"key": key, "days": days, "points": get_history(key, days=days)})
 
 
+@app.get("/api/forex/custom")
+def forex_custom():
+    """Fetch additional Vietcombank exchange rates by currency code."""
+
+    import datetime as _dt
+
+    import requests as _req
+
+    from services.vn_prices import _now_label, _parse_vn_number
+
+    raw = request.args.get("codes", "")
+    codes = [c.strip().upper() for c in raw.split(",") if c.strip()][:20]
+    if not codes:
+        return jsonify({"cards": [], "available": []})
+
+    today = _dt.date.today().isoformat()
+    try:
+        r = _req.get(f"https://www.vietcombank.com.vn/api/exchangerates?date={today}", timeout=15)
+        r.raise_for_status()
+        rates = r.json().get("Data", [])
+    except Exception:
+        return jsonify({"cards": [], "error": "fetch_failed"}), 502
+
+    by_code = {row.get("currencyCode", "").upper(): row for row in rates}
+    available_codes = list(by_code.keys())
+
+    cards = []
+    for code in codes:
+        row = by_code.get(code)
+        if not row:
+            continue
+        buy_transfer = _parse_vn_number(str(row.get("transfer", "")))
+        buy_cash = _parse_vn_number(str(row.get("cash", "")))
+        sell = _parse_vn_number(str(row.get("sell", "")))
+        if not any((buy_transfer, buy_cash, sell)):
+            continue
+        buy = buy_transfer or buy_cash
+        cards.append({
+            "key": f"forex_{code.lower()}_vnd",
+            "label": f"{code}/VND",
+            "provider": "Vietcombank",
+            "icon": "banknote",
+            "symbol": code,
+            "buy": buy,
+            "sell": sell,
+            "buy_text": f"{buy:,.0f}".replace(",", ".") if buy else "",
+            "sell_text": f"{sell:,.0f}".replace(",", ".") if sell else "",
+            "price_text": (
+                f"Mua {buy:,.0f} / Bán {sell:,.0f}".replace(",", ".")
+                if buy and sell and buy != sell
+                else f"{(sell or buy):,.0f}".replace(",", ".")
+            ),
+            "unit": f"VND/{code}",
+            "updated_label": _now_label(),
+            "history": [],
+        })
+
+    return jsonify({"cards": cards, "available": sorted(available_codes)})
+
+
 @app.post("/api/ask")
 @limit(ask_limiter)
 def ask():

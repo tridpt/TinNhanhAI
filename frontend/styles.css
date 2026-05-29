@@ -2494,3 +2494,63 @@ html[data-theme="dark"] .chart-backdrop {
   background: var(--surface);
   border-color: var(--accent);
 }
+
+
+/* Forex add modal options */
+.forex-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 6px;
+  margin: 14px 0;
+}
+
+.forex-option {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.forex-option:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.forex-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--success);
+}
+
+
+/* Inline + button in section title */
+.add-watchlist-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  vertical-align: middle;
+}
+
+.add-watchlist-inline:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.add-watchlist-inline i {
+  width: 12px;
+  height: 12px;
+}
