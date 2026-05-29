@@ -778,6 +778,25 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Render a friendly error inside the summary box with a "Thử lại" button.
+function renderSummaryError(container, message, onRetry) {
+  container.hidden = false;
+  container.innerHTML = `
+    <div class="reader-summary-error">
+      <i data-lucide="alert-circle"></i>
+      <span>${escapeHtml(message)}</span>
+      <button type="button" class="reader-summary-retry">
+        <i data-lucide="rotate-cw"></i> Thử lại
+      </button>
+    </div>
+  `;
+  const retryBtn = container.querySelector(".reader-summary-retry");
+  if (retryBtn && typeof onRetry === "function") {
+    retryBtn.addEventListener("click", onRetry);
+  }
+  lucide.createIcons();
+}
+
 function showReaderModal(title, contentHtmlParts, url, wordCount) {
   let modal = document.getElementById("reader-modal");
   if (!modal) {
@@ -825,13 +844,14 @@ function showReaderModal(title, contentHtmlParts, url, wordCount) {
   const summaryDiv = modal.querySelector(".reader-summary");
   if (summaryDiv) summaryDiv.hidden = true;
   if (summarizeBtn) {
-    summarizeBtn.onclick = async () => {
+    const runSummarize = async () => {
       const plainText = (contentHtmlParts || [])
         .map((p) => p.replace(/<[^>]+>/g, ""))
         .join("\n");
       if (!plainText.trim()) return;
       summaryDiv.hidden = false;
-      summaryDiv.innerHTML = `<div class="reader-summary-loading"><i data-lucide="loader"></i> Đang tóm tắt...</div>`;
+      summarizeBtn.disabled = true;
+      summaryDiv.innerHTML = `<div class="reader-summary-loading"><i data-lucide="loader" class="spin"></i> Đang tóm tắt...</div>`;
       lucide.createIcons();
       try {
         const res = await fetch("/api/summarize", {
@@ -839,20 +859,29 @@ function showReaderModal(title, contentHtmlParts, url, wordCount) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title, content: plainText }),
         });
-        const data = await res.json();
-        if (data.error) {
-          summaryDiv.innerHTML = `<p class="muted">${data.message || "Không tóm tắt được."}</p>`;
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) {
+          const isRate = res.status === 429 || data.error === "rate_limited";
+          const msg = data.message
+            || (isRate
+              ? `Bạn tóm tắt hơi nhanh, chờ ${data.retry_after ?? 15}s rồi thử lại.`
+              : "Chưa tóm tắt được, thử lại nhé.");
+          renderSummaryError(summaryDiv, msg, runSummarize);
+          summarizeBtn.disabled = false;
           return;
         }
         summaryDiv.innerHTML = `
-          <div class="reader-summary-head"><i data-lucide="sparkles"></i> Tóm tắt AI</div>
+          <div class="reader-summary-head"><i data-lucide="sparkles"></i> Tóm tắt AI${data.cached ? ' <span class="reader-summary-tag">đã lưu</span>' : ""}</div>
           <pre class="reader-summary-text">${escapeHtml(data.summary)}</pre>
         `;
         lucide.createIcons();
       } catch (e) {
-        summaryDiv.innerHTML = `<p class="muted">Lỗi kết nối.</p>`;
+        renderSummaryError(summaryDiv, "Lỗi kết nối mạng. Kiểm tra rồi thử lại.", runSummarize);
+      } finally {
+        summarizeBtn.disabled = false;
       }
     };
+    summarizeBtn.onclick = runSummarize;
   }
   modal.querySelector(".reader-meta").textContent = wordCount
     ? `~${Math.ceil(wordCount / 200)} phút đọc · ${wordCount} từ`
@@ -1582,7 +1611,8 @@ async function askQuestion(question) {
   }
   state.loadingQuestion = true;
   el.answerMeta.textContent = "Đang suy nghĩ...";
-  el.answerBox.innerHTML = `<p class="muted">Đang lấy nguồn...</p>`;
+  el.answerBox.innerHTML = `<div class="answer-loading"><i data-lucide="loader" class="spin"></i> Đang lấy nguồn và tổng hợp...</div>`;
+  lucide.createIcons();
   // Scroll to answer section so user sees the response appearing.
   const answerSection = el.answerBox.closest(".band");
   if (answerSection) answerSection.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1612,13 +1642,34 @@ async function askQuestion(question) {
       note.className = isOffline ? "muted" : "answer-error";
       note.textContent = message;
       el.answerBox.appendChild(note);
+      // Offer a retry button (except when offline, where a retry won't help).
+      if (!isOffline) {
+        const retryBtn = document.createElement("button");
+        retryBtn.type = "button";
+        retryBtn.className = "answer-retry-btn";
+        retryBtn.innerHTML = `<i data-lucide="rotate-cw"></i> Thử lại`;
+        retryBtn.addEventListener("click", () => askQuestion(question));
+        el.answerBox.appendChild(retryBtn);
+        lucide.createIcons();
+      }
       return;
     }
     renderAnswer(data);
   } catch (error) {
     console.error(error);
     el.answerMeta.textContent = "Lỗi";
-    el.answerBox.innerHTML = `<p class="answer-error">Không kết nối được tới máy chủ.</p>`;
+    el.answerBox.innerHTML = "";
+    const note = document.createElement("p");
+    note.className = "answer-error";
+    note.textContent = "Không kết nối được tới máy chủ.";
+    el.answerBox.appendChild(note);
+    const retryBtn = document.createElement("button");
+    retryBtn.type = "button";
+    retryBtn.className = "answer-retry-btn";
+    retryBtn.innerHTML = `<i data-lucide="rotate-cw"></i> Thử lại`;
+    retryBtn.addEventListener("click", () => askQuestion(question));
+    el.answerBox.appendChild(retryBtn);
+    lucide.createIcons();
   } finally {
     state.loadingQuestion = false;
   }

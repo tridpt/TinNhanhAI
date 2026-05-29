@@ -1753,6 +1753,22 @@ html[data-theme="dark"] .reader-backdrop {
     padding: 5px 8px;
   }
 
+  /* AI summary box: tighter margins on small screens */
+  .reader-summary {
+    margin: 0 16px;
+    padding: 12px 14px;
+  }
+
+  .reader-summary-error {
+    font-size: 0.84rem;
+  }
+
+  .reader-summary-retry,
+  .answer-retry-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
   /* Export button */
   #export-prices-btn span {
     display: none;
@@ -2705,4 +2721,91 @@ html[data-theme="dark"] .chart-backdrop {
 html[data-theme="dark"] .reader-summary {
   background: rgba(45, 212, 191, 0.08);
   border-color: rgba(45, 212, 191, 0.3);
+}
+
+/* Generic spinner helper for any lucide icon */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* "đã lưu" tag on cached summaries */
+.reader-summary-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  border-radius: 999px;
+  background: rgba(45, 212, 191, 0.18);
+  color: var(--accent, #0d9488);
+  vertical-align: middle;
+}
+
+/* Inline error + retry inside the summary box */
+.reader-summary-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.reader-summary-error > i {
+  width: 16px;
+  height: 16px;
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.reader-summary-retry,
+.answer-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0;
+  padding: 6px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+}
+
+.answer-retry-btn {
+  margin-top: 12px;
+}
+
+.reader-summary-retry:hover,
+.answer-retry-btn:hover {
+  border-color: var(--accent, #0d9488);
+  background: rgba(45, 212, 191, 0.1);
+}
+
+.reader-summary-retry:active,
+.answer-retry-btn:active {
+  transform: scale(0.97);
+}
+
+.reader-summary-retry i,
+.answer-retry-btn i {
+  width: 14px;
+  height: 14px;
+}
+
+/* Loading state for the AI answer box */
+.answer-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.answer-loading i {
+  width: 18px;
+  height: 18px;
 }

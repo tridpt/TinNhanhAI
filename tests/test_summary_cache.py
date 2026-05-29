@@ -71,3 +71,68 @@ def test_summarize_endpoint_caches_after_first_call(flask_client, monkeypatch):
 def test_summarize_requires_content(flask_client):
     r = flask_client.post("/api/summarize", json={"title": "x", "content": ""})
     assert r.status_code == 400
+
+
+def test_summarize_rate_limited_returns_retry_info(flask_client, monkeypatch):
+    """A rate-limited cache-miss returns 429 with retry metadata for the UI."""
+
+    import app as flask_app
+    import config
+    from services import ai
+
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "gkey")
+    monkeypatch.setattr(flask_app.ask_limiter, "max_per_minute", 1)
+    # Reset the shared limiter's buckets so prior tests don't affect counts.
+    flask_app.ask_limiter._hits.clear()
+
+    def fake_post(*a, **kw):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json = MagicMock(return_value={
+            "candidates": [{"content": {"parts": [{"text": "ok"}]}}]
+        })
+        return resp
+
+    monkeypatch.setattr(ai.requests, "post", fake_post)
+
+    # First unique article consumes the only token.
+    r1 = flask_client.post("/api/summarize", json={"title": "a", "content": "noi dung 1"})
+    assert r1.status_code == 200
+    # Second unique article (cache miss) is rate limited.
+    r2 = flask_client.post("/api/summarize", json={"title": "b", "content": "noi dung 2"})
+    assert r2.status_code == 429
+    data = r2.get_json()
+    assert data["error"] == "rate_limited"
+    assert "retry_after" in data
+    assert data["message"]
+
+
+def test_summarize_cache_hit_bypasses_rate_limit(flask_client, monkeypatch):
+    """Cache hits must not be blocked by the rate limiter (no AI cost)."""
+
+    import app as flask_app
+    import config
+    from services import ai
+
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "gkey")
+
+    def fake_post(*a, **kw):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json = MagicMock(return_value={
+            "candidates": [{"content": {"parts": [{"text": "Tóm tắt"}]}}]
+        })
+        return resp
+
+    monkeypatch.setattr(ai.requests, "post", fake_post)
+    flask_app.ask_limiter._hits.clear()
+
+    body = {"title": "z", "content": "noi dung cache"}
+    # Warm the cache with one allowed call.
+    assert flask_client.post("/api/summarize", json=body).status_code == 200
+    # Now choke the limiter; cache hit should still succeed.
+    monkeypatch.setattr(flask_app.ask_limiter, "max_per_minute", 1)
+    flask_client.post("/api/summarize", json={"title": "q", "content": "tieu hao token"})
+    r = flask_client.post("/api/summarize", json=body)
+    assert r.status_code == 200
+    assert r.get_json()["cached"] is True
