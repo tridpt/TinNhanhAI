@@ -1956,10 +1956,35 @@ async function fetchAvailableForex() {
 async function fetchCustomForex() {
   const codes = JSON.parse(localStorage.getItem(LS_KEYS.customForex) || "[]");
   if (!codes.length) return;
+  // Try Vietcombank first, then fallback to open.er-api for non-VCB currencies.
   try {
     const response = await fetch(`/api/forex/custom?codes=${encodeURIComponent(codes.join(","))}`);
     const data = await response.json();
-    appendCustomForexCards(data.cards || []);
+    const vcbCards = data.cards || [];
+    const vcbCodes = new Set(vcbCards.map((c) => c.symbol));
+
+    // For codes not in Vietcombank, use convert endpoint.
+    const missingCodes = codes.filter((c) => !vcbCodes.has(c));
+    const extraCards = [];
+    for (const code of missingCodes) {
+      try {
+        const r = await fetch(`/api/forex/convert?from=${code}&to=VND&amount=1`);
+        const d = await r.json();
+        if (!d.error && d.rate) {
+          extraCards.push({
+            label: `${code}/VND`,
+            provider: "open.er-api",
+            icon: "banknote",
+            symbol: code,
+            price_text: `${d.rate.toLocaleString("vi-VN", {maximumFractionDigits: 2})}`,
+            unit: `VND/${code}`,
+            updated_label: new Date().toLocaleTimeString("vi-VN", {hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"}),
+            history: [],
+          });
+        }
+      } catch (e) { /* skip */ }
+    }
+    appendCustomForexCards([...vcbCards, ...extraCards]);
   } catch (e) { /* silent */ }
 }
 
@@ -1997,11 +2022,17 @@ function appendCustomForexCards(cards) {
 }
 
 async function promptAddForex() {
-  const available = await fetchAvailableForex();
-  // Exclude already-displayed defaults and saved customs.
-  const defaults = ["USD", "EUR", "JPY", "GBP", "AUD", "SGD", "CNY", "KRW"];
+  // Fetch all 166 available currencies.
+  let allCodes = [];
+  try {
+    const r = await fetch("/api/forex/convert?from=USD&to=VND&amount=1");
+    const data = await r.json();
+    allCodes = data.available || [];
+  } catch (e) { /* fallback empty */ }
+
   const saved = JSON.parse(localStorage.getItem(LS_KEYS.customForex) || "[]");
-  const remaining = available.filter((c) => !defaults.includes(c) && !saved.includes(c));
+  const defaults = ["USD", "EUR", "JPY", "GBP", "AUD", "SGD", "CNY", "KRW"];
+  const alreadyShown = [...defaults, ...saved];
 
   let overlay = document.getElementById("forex-modal");
   if (overlay) overlay.remove();
@@ -2013,34 +2044,88 @@ async function promptAddForex() {
     <div class="watchlist-backdrop"></div>
     <div class="watchlist-dialog">
       <h3>Thêm tỷ giá ngoại tệ</h3>
-      <p class="muted">${remaining.length ? "Chọn loại tiền tệ Vietcombank hỗ trợ:" : "Bạn đã thêm hết các loại Vietcombank hỗ trợ."}</p>
-      <div class="forex-options">
-        ${remaining.map((c) => `<button type="button" class="forex-option" data-code="${c}">${c}</button>`).join("")}
+      <p class="muted">Tìm và thêm bất kỳ loại tiền nào (166 loại). Gõ mã tiền hoặc chọn từ danh sách.</p>
+      <form class="watchlist-form">
+        <input type="text" class="watchlist-input" placeholder="Gõ mã tiền: THB, CAD, CHF, BRL..." list="forex-add-list" autocomplete="off" autofocus>
+        <datalist id="forex-add-list">
+          ${allCodes.filter((c) => !alreadyShown.includes(c)).map((c) => `<option value="${c}">`).join("")}
+        </datalist>
+        <div class="watchlist-actions">
+          <button type="submit" class="primary-btn">Thêm</button>
+          <button type="button" class="watchlist-cancel chip">Đóng</button>
+        </div>
+      </form>
+      <div class="forex-popular">
+        <p class="muted" style="margin:10px 0 6px;font-size:0.78rem">Phổ biến:</p>
+        <div class="forex-options">
+          ${["THB", "CAD", "CHF", "HKD", "INR", "MYR", "NOK", "SEK", "BRL", "TWD", "NZD", "ZAR"]
+            .filter((c) => !alreadyShown.includes(c) && allCodes.includes(c))
+            .map((c) => `<button type="button" class="forex-option" data-code="${c}">${c}</button>`)
+            .join("")}
+        </div>
       </div>
-      <div class="watchlist-actions">
-        <button type="button" class="watchlist-cancel chip" style="flex:1">Đóng</button>
-      </div>
+      <div class="watchlist-current"></div>
     </div>
   `;
   document.body.appendChild(overlay);
 
-  const close = () => overlay.remove();
-  overlay.querySelector(".watchlist-cancel").addEventListener("click", close);
-  overlay.querySelector(".watchlist-backdrop").addEventListener("click", close);
+  const input = overlay.querySelector(".watchlist-input");
+  const form = overlay.querySelector(".watchlist-form");
+  const cancel = overlay.querySelector(".watchlist-cancel");
+  const backdrop = overlay.querySelector(".watchlist-backdrop");
+  const currentDiv = overlay.querySelector(".watchlist-current");
+
+  function close() { overlay.remove(); }
+  cancel.addEventListener("click", close);
+  backdrop.addEventListener("click", close);
+
+  function renderSaved() {
+    const list = JSON.parse(localStorage.getItem(LS_KEYS.customForex) || "[]");
+    if (!list.length) { currentDiv.innerHTML = ""; return; }
+    currentDiv.innerHTML = `
+      <p class="watchlist-current-title">Đang theo dõi:</p>
+      <div class="watchlist-chips">
+        ${list.map((c) => `<span class="watchlist-chip">${c}<button type="button" data-code="${c}" class="watchlist-chip-remove">×</button></span>`).join("")}
+      </div>
+    `;
+    currentDiv.querySelectorAll(".watchlist-chip-remove").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const code = btn.dataset.code;
+        const updated = JSON.parse(localStorage.getItem(LS_KEYS.customForex) || "[]").filter((c) => c !== code);
+        localStorage.setItem(LS_KEYS.customForex, JSON.stringify(updated));
+        renderSaved();
+        fetchCustomForex();
+      });
+    });
+  }
+  renderSaved();
+
+  function addCode(code) {
+    code = code.trim().toUpperCase();
+    if (!code) return;
+    const list = JSON.parse(localStorage.getItem(LS_KEYS.customForex) || "[]");
+    if (list.includes(code) || defaults.includes(code)) return;
+    list.push(code);
+    localStorage.setItem(LS_KEYS.customForex, JSON.stringify(list));
+    renderSaved();
+    fetchCustomForex();
+  }
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    addCode(input.value);
+    input.value = "";
+  });
 
   overlay.querySelectorAll(".forex-option").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const code = btn.dataset.code;
-      const list = JSON.parse(localStorage.getItem(LS_KEYS.customForex) || "[]");
-      if (!list.includes(code)) {
-        list.push(code);
-        localStorage.setItem(LS_KEYS.customForex, JSON.stringify(list));
-      }
+    btn.addEventListener("click", () => {
+      addCode(btn.dataset.code);
       btn.disabled = true;
-      btn.textContent = `${code} ✓`;
-      await fetchCustomForex();
+      btn.textContent = `${btn.dataset.code} ✓`;
     });
   });
+
+  setTimeout(() => input.focus(), 50);
 }
 
 // --- Custom watchlist (stocks/crypto) ----------------------------------------
