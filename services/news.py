@@ -156,14 +156,8 @@ def _fallback_summary(label: str, items: list[dict[str, Any]]) -> str:
     if not items:
         return f"Chưa có bài mới cho {label.lower()}."
 
-    top_items = items[:4]
-    lines = [f"{label}:", "Điểm nổi bật:"]
-    for item in top_items[:3]:
-        head = item.get("summary") or item.get("title") or ""
-        lines.append(f"- {item.get('title', '').strip()}".rstrip())
-        if head and head != item.get("title"):
-            lines.append(f"  {head[:180]}")
-    return "\n".join(lines)
+    titles = [item.get("title", "").strip() for item in items[:4] if item.get("title")]
+    return " | ".join(titles) if titles else f"Đang cập nhật {label.lower()}..."
 
 
 def _summarize_topic(label: str, items: list[dict[str, Any]]) -> str:

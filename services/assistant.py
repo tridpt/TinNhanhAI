@@ -16,14 +16,14 @@ def _short_news_answer(topic_payload: dict[str, Any]) -> str:
     if not items:
         return f"Chưa có dữ liệu mới cho {topic_payload.get('label', 'chủ đề này')}."
 
-    lines = [topic_payload.get("summary") or f"Tổng hợp nhanh cho {topic_payload.get('label', '')}:"]
-    for item in items[:4]:
+    label = topic_payload.get("label", "Tin tức")
+    lines = [f"Điểm tin {label} hôm nay:"]
+    for item in items[:5]:
         source = item.get("source", "")
         title = item.get("title", "")
-        if source:
-            lines.append(f"- {title} ({source})")
-        else:
-            lines.append(f"- {title}")
+        lines.append(f"• {title}" + (f" ({source})" if source else ""))
+    if len(items) > 5:
+        lines.append(f"\n→ Xem thêm {len(items) - 5} bài ở tab Nguồn.")
     return "\n".join(lines)
 
 
