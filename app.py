@@ -191,8 +191,16 @@ def stocks_custom():
 
     raw = request.args.get("symbols", "")
     symbols = [s.strip().upper() for s in raw.split(",") if s.strip()][:20]
-    # Auto-append .VN suffix for Vietnamese stocks if not present.
-    symbols = [s if "." in s else f"{s}.VN" for s in symbols]
+    # Auto-append .VN suffix only for short symbols without any suffix.
+    # International stocks (AAPL, TSLA) or those with explicit suffix (.T, .HK) stay as-is.
+    KNOWN_INTL = {"AAPL", "TSLA", "NVDA", "MSFT", "GOOGL", "AMZN", "META", "NFLX", "AMD", "INTC", "BABA", "TSM", "SONY"}
+    processed = []
+    for s in symbols:
+        if "." in s or s in KNOWN_INTL or len(s) > 5:
+            processed.append(s)
+        else:
+            processed.append(f"{s}.VN")
+    symbols = processed
     cards = []
     for symbol in symbols:
         data = _fetch_yahoo_stock(symbol)
