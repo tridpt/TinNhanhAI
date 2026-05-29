@@ -38,6 +38,33 @@ def ai_provider() -> str:
 # --- Gemini -----------------------------------------------------------------------
 
 
+# Fallback models tried (in order) when the primary model hits a 429 quota
+# error. ``gemini-2.5-flash-lite`` has the most generous free-tier limits.
+_GEMINI_FALLBACKS = [
+    "gemini-2.5-flash-lite",
+    "gemini-flash-lite-latest",
+    "gemini-2.0-flash-lite",
+]
+
+
+def _call_gemini_model(
+    model: str,
+    *,
+    body: dict[str, Any],
+    timeout: int = 40,
+) -> tuple[int, str]:
+    """Single call to a Gemini model. Returns (status_code, text)."""
+
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}"
+        f":generateContent?key={config.GEMINI_API_KEY}"
+    )
+    response = requests.post(url, json=body, timeout=timeout)
+    if response.status_code != 200:
+        return response.status_code, ""
+    return 200, _extract_gemini_text(response.json())
+
+
 def _generate_gemini(
     prompt: str,
     *,
@@ -45,16 +72,11 @@ def _generate_gemini(
     temperature: float,
     max_output_tokens: int,
 ) -> str:
-    """Call Google Gemini generateContent endpoint with 1 retry on 429."""
+    """Call Gemini, falling back to lighter models on 429 quota errors."""
 
     import time
 
-    model = config.GEMINI_MODEL
-    url = (
-        f"https://generativelanguage.googleapis.com/v1beta/models/{model}"
-        f":generateContent?key={config.GEMINI_API_KEY}"
-    )
-    payload = {
+    body = {
         "contents": [
             {
                 "parts": [{"text": f"{instructions}\n\n{prompt}"}],
@@ -65,21 +87,31 @@ def _generate_gemini(
             "maxOutputTokens": max_output_tokens,
         },
     }
-    for attempt in range(2):
+
+    # Build an ordered list of models to try: the configured one first, then
+    # any fallbacks that differ from it.
+    models = [config.GEMINI_MODEL]
+    for fallback in _GEMINI_FALLBACKS:
+        if fallback not in models:
+            models.append(fallback)
+
+    for model in models:
         try:
-            response = requests.post(url, json=payload, timeout=40)
-            if response.status_code == 429 and attempt == 0:
-                # Rate limited — wait and retry once.
-                time.sleep(5)
-                continue
-            response.raise_for_status()
-            data = response.json()
-            return _extract_gemini_text(data)
+            status, text = _call_gemini_model(model, body=body)
         except Exception:
-            if attempt == 0:
-                time.sleep(2)
-                continue
+            # Network/timeout — try the next model.
+            time.sleep(1)
+            continue
+        if status == 200:
+            if text:
+                return text
+            # Empty 200 (e.g. safety block) — no point retrying other models.
             return ""
+        if status == 429:
+            # Quota exhausted for this model — try the next fallback.
+            continue
+        # Other errors (4xx/5xx) — give up.
+        return ""
     return ""
 
 

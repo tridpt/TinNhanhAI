@@ -206,14 +206,18 @@ def get_topic_payload(topic_key: str, *, force: bool = False, offset: int = 0, l
     items = news_store.get_articles(topic_key, offset=offset, limit=limit)
     total = news_store.count_articles(topic_key)
 
-    # Only generate summary for the first page.
+    # Generate AI summary only for the "all" topic to conserve API quota.
+    # Other topics use a lightweight fallback (titles) unless cached.
     summary = ""
     if offset == 0:
         summary_cache_key = f"news-summary:{topic_key}"
-        if not force:
-            summary = CACHE.get(summary_cache_key) or ""
+        summary = CACHE.get(summary_cache_key) or ""
         if not summary:
-            summary = _summarize_topic(_topic_label(topic_key), items[:8])
+            if topic_key == "all":
+                # Only the main feed gets an AI summary by default.
+                summary = _summarize_topic(_topic_label(topic_key), items[:8])
+            else:
+                summary = _fallback_summary(_topic_label(topic_key), items)
             CACHE.set(summary_cache_key, summary, config.NEWS_REFRESH_SECONDS)
 
     return {
