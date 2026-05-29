@@ -172,7 +172,15 @@
         <div class="panel-head">
           <div>
             <h2>Thời tiết</h2>
-            <p>Dự báo 5 ngày cho các thành phố lớn.</p>
+            <p>Dự báo 5 ngày cho các thành phố.</p>
+          </div>
+          <div class="weather-actions">
+            <button id="locate-weather-btn" class="chip" type="button" title="Dùng vị trí hiện tại">
+              <i data-lucide="map-pin"></i> Vị trí của tôi
+            </button>
+            <button id="add-city-btn" class="chip" type="button" title="Thêm thành phố">
+              <i data-lucide="plus"></i> Thêm TP
+            </button>
           </div>
         </div>
         <div id="weather-list" class="weather-list"></div>

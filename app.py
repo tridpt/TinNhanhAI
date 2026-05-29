@@ -235,6 +235,78 @@ def weather():
     return jsonify(get_weather_payload(force=force))
 
 
+@app.get("/api/weather/location")
+def weather_location():
+    """Fetch weather for a specific lat/lon or city name."""
+
+    import requests as _req
+
+    from services.weather import _describe_code, _format_day
+
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+    name = request.args.get("name", "Vị trí của bạn")
+
+    if not lat or not lon:
+        return jsonify({"error": "lat and lon are required"}), 400
+
+    try:
+        response = _req.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature",
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                "timezone": "auto",
+                "forecast_days": 5,
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 502
+
+    current = data.get("current") or {}
+    code = current.get("weather_code")
+    label, icon = _describe_code(code)
+
+    daily = data.get("daily") or {}
+    forecast = []
+    for i, date_str in enumerate(daily.get("time") or []):
+        day_code = (daily.get("weather_code") or [])[i] if i < len(daily.get("weather_code") or []) else None
+        day_label, day_icon = _describe_code(day_code)
+        maxs = daily.get("temperature_2m_max") or []
+        mins = daily.get("temperature_2m_min") or []
+        rains = daily.get("precipitation_probability_max") or []
+        forecast.append({
+            "date": date_str,
+            "day_label": _format_day(date_str),
+            "weather": day_label,
+            "icon": day_icon,
+            "temp_max": maxs[i] if i < len(maxs) else None,
+            "temp_min": mins[i] if i < len(mins) else None,
+            "rain_prob": rains[i] if i < len(rains) else None,
+        })
+
+    temp = current.get("temperature_2m")
+    feels = current.get("apparent_temperature")
+    humidity = current.get("relative_humidity_2m")
+    wind = current.get("wind_speed_10m")
+
+    return jsonify({
+        "city": name,
+        "label": label,
+        "icon": icon,
+        "temperature_text": f"{temp:.0f}°C" if temp is not None else "",
+        "feels_like_text": f"{feels:.0f}°C" if feels is not None else "",
+        "humidity_text": f"{humidity}%" if humidity is not None else "",
+        "wind_text": f"{wind:.1f} km/h" if wind is not None else "",
+        "forecast": forecast,
+    })
+
+
 @app.get("/api/prices/history")
 def prices_history():
     from services.history import get_history

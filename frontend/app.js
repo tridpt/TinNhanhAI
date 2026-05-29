@@ -1987,6 +1987,142 @@ function appendCustomCards(container, cards, type) {
   lucide.createIcons();
 }
 
+// --- Custom weather locations ------------------------------------------------
+
+function locateAndAddWeather() {
+  if (!navigator.geolocation) {
+    alert("Trình duyệt không hỗ trợ định vị.");
+    return;
+  }
+  const btn = document.getElementById("locate-weather-btn");
+  if (btn) btn.textContent = "Đang định vị...";
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const { latitude, longitude } = pos.coords;
+      try {
+        const response = await fetch(`/api/weather/location?lat=${latitude}&lon=${longitude}&name=Vị trí của tôi`);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        appendWeatherCard(data);
+      } catch (e) {
+        console.error("Weather location failed:", e);
+      }
+      if (btn) btn.innerHTML = `<i data-lucide="map-pin"></i> Vị trí của tôi`;
+      lucide.createIcons();
+    },
+    (err) => {
+      console.error("Geolocation error:", err);
+      if (btn) btn.innerHTML = `<i data-lucide="map-pin"></i> Vị trí của tôi`;
+      lucide.createIcons();
+      alert("Không thể lấy vị trí. Hãy cho phép truy cập vị trí trong trình duyệt.");
+    },
+    { timeout: 10000 }
+  );
+}
+
+function promptAddCity() {
+  let overlay = document.getElementById("city-modal");
+  if (overlay) overlay.remove();
+
+  overlay = document.createElement("div");
+  overlay.id = "city-modal";
+  overlay.className = "watchlist-modal";
+  overlay.innerHTML = `
+    <div class="watchlist-backdrop"></div>
+    <div class="watchlist-dialog">
+      <h3>Thêm thành phố</h3>
+      <p class="muted">Nhập tên thành phố (tiếng Anh hoặc tiếng Việt).</p>
+      <form class="watchlist-form">
+        <input type="text" class="watchlist-input" placeholder="Tokyo, London, New York..." autocomplete="off" autofocus>
+        <div class="watchlist-actions">
+          <button type="submit" class="primary-btn">Tìm & Thêm</button>
+          <button type="button" class="watchlist-cancel chip">Huỷ</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector(".watchlist-input");
+  const form = overlay.querySelector(".watchlist-form");
+  const cancel = overlay.querySelector(".watchlist-cancel");
+  const backdrop = overlay.querySelector(".watchlist-backdrop");
+
+  function close() { overlay.remove(); }
+  cancel.addEventListener("click", close);
+  backdrop.addEventListener("click", close);
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const city = input.value.trim();
+    if (!city) return;
+    input.disabled = true;
+
+    // Use Open-Meteo geocoding to find lat/lon.
+    try {
+      const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=vi`);
+      const geoData = await geoRes.json();
+      const result = (geoData.results || [])[0];
+      if (!result) {
+        input.value = "";
+        input.placeholder = "Không tìm thấy! Thử tên khác...";
+        input.disabled = false;
+        return;
+      }
+      const weatherRes = await fetch(`/api/weather/location?lat=${result.latitude}&lon=${result.longitude}&name=${encodeURIComponent(result.name)}`);
+      const weatherData = await weatherRes.json();
+      if (weatherData.error) throw new Error(weatherData.error);
+      appendWeatherCard(weatherData);
+      close();
+    } catch (err) {
+      console.error(err);
+      input.value = "";
+      input.placeholder = "Lỗi! Thử lại...";
+      input.disabled = false;
+    }
+  });
+
+  setTimeout(() => input.focus(), 50);
+}
+
+function appendWeatherCard(city) {
+  if (!el.weatherList) return;
+  const forecast = (city.forecast || []).map((day) => `
+    <div class="forecast-day">
+      <span class="forecast-date">${day.day_label || day.date || ""}</span>
+      <i data-lucide="${day.icon || "cloud"}"></i>
+      <span class="forecast-temps">${day.temp_min != null ? Math.round(day.temp_min) : "?"}° / ${day.temp_max != null ? Math.round(day.temp_max) : "?"}°</span>
+      ${day.rain_prob != null ? `<span class="forecast-rain"><i data-lucide="droplets"></i>${day.rain_prob}%</span>` : ""}
+    </div>
+  `).join("");
+
+  const card = document.createElement("article");
+  card.className = "weather-card custom-card";
+  card.innerHTML = `
+    <button class="remove-watchlist-btn" type="button" title="Xóa">
+      <i data-lucide="x"></i>
+    </button>
+    <div class="weather-head">
+      <span class="weather-icon"><i data-lucide="${city.icon || "cloud"}"></i></span>
+      <div>
+        <h4 class="weather-city">${city.city || ""}</h4>
+        <p class="weather-cond">${city.label || ""}</p>
+      </div>
+    </div>
+    <div class="weather-temp">${city.temperature_text || ""}</div>
+    <ul class="weather-stats">
+      <li><i data-lucide="thermometer"></i><span>Cảm giác ${city.feels_like_text || "—"}</span></li>
+      <li><i data-lucide="droplets"></i><span>Ẩm ${city.humidity_text || "—"}</span></li>
+      <li><i data-lucide="wind"></i><span>Gió ${city.wind_text || "—"}</span></li>
+    </ul>
+    ${forecast ? `<div class="forecast-row">${forecast}</div>` : ""}
+  `;
+  card.querySelector(".remove-watchlist-btn").addEventListener("click", () => card.remove());
+  el.weatherList.appendChild(card);
+  lucide.createIcons();
+}
+
 function bindEvents() {
   el.refreshBtn.addEventListener("click", () => loadDashboard(true));
   el.queryForm.addEventListener("submit", async (event) => {
@@ -2025,6 +2161,10 @@ function bindEvents() {
   if (addStockBtn) addStockBtn.addEventListener("click", () => promptAddSymbol("stock"));
   const addCryptoBtn = document.getElementById("add-crypto-btn");
   if (addCryptoBtn) addCryptoBtn.addEventListener("click", () => promptAddSymbol("crypto"));
+  const locateBtn = document.getElementById("locate-weather-btn");
+  if (locateBtn) locateBtn.addEventListener("click", locateAndAddWeather);
+  const addCityBtn = document.getElementById("add-city-btn");
+  if (addCityBtn) addCityBtn.addEventListener("click", promptAddCity);
   if (el.newsFilterInput) {
     let debounceId = null;
     el.newsFilterInput.addEventListener("input", (event) => {
