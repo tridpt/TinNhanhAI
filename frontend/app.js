@@ -13,6 +13,9 @@ const state = {
   autoRefreshTimerId: null,
   marketRefreshTimerId: null,
   lastPrices: new Map(),
+  // Latest market cards (incl. custom) for the compare feature, keyed by symbol.
+  cryptoCards: new Map(),
+  stockCards: new Map(),
 };
 
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
@@ -729,6 +732,207 @@ function closeDetailChart() {
   }
 }
 
+// --- Multi-symbol compare ----------------------------------------------------
+
+const COMPARE_MAX = 4;
+const _compareSelection = { crypto: [], stock: [] };
+
+function openCompareModal(type) {
+  const store = type === "stock" ? state.stockCards : state.cryptoCards;
+  const available = [...store.values()].filter(
+    (c) => Array.isArray(c.history) && c.history.length >= 2,
+  );
+
+  let modal = document.getElementById("compare-modal");
+  if (modal) modal.remove();
+  modal = document.createElement("div");
+  modal.id = "compare-modal";
+  modal.className = "chart-modal";
+  modal.innerHTML = `
+    <div class="chart-backdrop"></div>
+    <div class="chart-panel compare-panel">
+      <div class="chart-header">
+        <h3 class="chart-title">So sánh ${type === "stock" ? "cổ phiếu" : "coin"} (theo % thay đổi)</h3>
+        <button class="chart-close" type="button" aria-label="Đóng"><i data-lucide="x"></i></button>
+      </div>
+      <div class="compare-picker"></div>
+      <div class="chart-body compare-body">
+        <div class="compare-empty muted">Chọn ít nhất 2 mã để so sánh đường giá.</div>
+      </div>
+      <div class="compare-legend-box"></div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  modal.querySelector(".chart-backdrop").addEventListener("click", closeCompareModal);
+  modal.querySelector(".chart-close").addEventListener("click", closeCompareModal);
+  document.addEventListener("keydown", function esc(e) {
+    if (e.key === "Escape") { closeCompareModal(); document.removeEventListener("keydown", esc); }
+  });
+
+  if (available.length < 2) {
+    modal.querySelector(".compare-picker").innerHTML =
+      `<p class="muted">Cần ít nhất 2 mã có dữ liệu lịch sử. Hãy thêm mã vào danh sách theo dõi trước.</p>`;
+  } else {
+    // Default selection: first 2 if nothing chosen yet.
+    if (!_compareSelection[type].length) {
+      _compareSelection[type] = available.slice(0, 2).map((c) => c.symbol);
+    } else {
+      // Keep only still-available symbols.
+      _compareSelection[type] = _compareSelection[type].filter((s) => store.has(s));
+    }
+    renderComparePicker(modal, type, available);
+    renderCompareChart(modal, type);
+  }
+
+  modal.classList.add("open");
+  document.body.style.overflow = "hidden";
+  lucide.createIcons();
+}
+
+function renderComparePicker(modal, type, available) {
+  const picker = modal.querySelector(".compare-picker");
+  const selected = _compareSelection[type];
+  picker.innerHTML = available.map((card, idx) => {
+    const isSel = selected.includes(card.symbol);
+    const color = isSel ? COMPARE_PALETTE[selected.indexOf(card.symbol) % COMPARE_PALETTE.length] : "";
+    return `
+      <button type="button" class="compare-chip ${isSel ? "active" : ""}" data-symbol="${card.symbol}"
+        style="${isSel ? `border-color:${color};color:${color}` : ""}">
+        ${isSel ? `<span class="compare-swatch" style="background:${color}"></span>` : ""}
+        ${card.label || card.symbol}
+      </button>
+    `;
+  }).join("");
+
+  picker.querySelectorAll(".compare-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const sym = btn.dataset.symbol;
+      const sel = _compareSelection[type];
+      const at = sel.indexOf(sym);
+      if (at >= 0) {
+        sel.splice(at, 1);
+      } else {
+        if (sel.length >= COMPARE_MAX) {
+          btn.classList.add("compare-shake");
+          setTimeout(() => btn.classList.remove("compare-shake"), 400);
+          return;
+        }
+        sel.push(sym);
+      }
+      renderComparePicker(modal, type, available);
+      renderCompareChart(modal, type);
+    });
+  });
+}
+
+function renderCompareChart(modal, type) {
+  const store = type === "stock" ? state.stockCards : state.cryptoCards;
+  const body = modal.querySelector(".compare-body");
+  const legendBox = modal.querySelector(".compare-legend-box");
+  const selected = _compareSelection[type]
+    .map((s) => store.get(s))
+    .filter((c) => c && Array.isArray(c.history) && c.history.length >= 2);
+
+  if (selected.length < 2) {
+    body.innerHTML = `<div class="compare-empty muted">Chọn ít nhất 2 mã để so sánh đường giá.</div>`;
+    legendBox.innerHTML = "";
+    return;
+  }
+
+  // Normalise each series to % change from its first point so wildly different
+  // price scales (BTC vs SHIB) become comparable.
+  const series = selected.map((card) => {
+    const pts = card.history.filter((p) => Number.isFinite(Number(p.value)));
+    const base = Number(pts[0].value) || 1;
+    return {
+      card,
+      points: pts.map((p) => ({ ts: Number(p.ts), pct: (Number(p.value) / base - 1) * 100 })),
+    };
+  });
+
+  const allPct = series.flatMap((s) => s.points.map((p) => p.pct));
+  const minPct = Math.min(...allPct, 0);
+  const maxPct = Math.max(...allPct, 0);
+  const span = maxPct - minPct || 1;
+  const allTs = series.flatMap((s) => s.points.map((p) => p.ts));
+  const tsMin = Math.min(...allTs);
+  const tsMax = Math.max(...allTs);
+  const tsSpan = tsMax - tsMin || 1;
+
+  const width = 640;
+  const height = 300;
+  const padX = 48;
+  const padY = 24;
+  const chartW = width - padX * 2;
+  const chartH = height - padY * 2;
+  const svgNS = "http://www.w3.org/2000/svg";
+
+  const xOf = (ts) => padX + ((ts - tsMin) / tsSpan) * chartW;
+  const yOf = (pct) => padY + chartH * (1 - (pct - minPct) / span);
+
+  // Y ticks (5 levels) in % terms.
+  const yTicks = Array.from({ length: 5 }, (_, i) => {
+    const pct = minPct + (span * i) / 4;
+    return { pct, y: padY + chartH * (1 - i / 4) };
+  });
+
+  const paths = series.map((s, idx) => {
+    const stroke = COMPARE_PALETTE[idx % COMPARE_PALETTE.length];
+    const d = s.points
+      .map((p, i) => `${i === 0 ? "M" : "L"}${xOf(p.ts).toFixed(1)} ${yOf(p.pct).toFixed(1)}`)
+      .join(" ");
+    return `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }).join("");
+
+  // Zero baseline.
+  const zeroY = yOf(0).toFixed(1);
+
+  body.innerHTML = `
+    <svg class="chart-svg compare-chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+      ${yTicks.map((t) => `
+        <line x1="${padX}" y1="${t.y.toFixed(1)}" x2="${width - padX}" y2="${t.y.toFixed(1)}" stroke="var(--line)" stroke-dasharray="4 4" stroke-width="0.5"/>
+        <text x="${padX - 6}" y="${t.y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" fill="var(--muted)" font-size="10">${t.pct >= 0 ? "+" : ""}${t.pct.toFixed(1)}%</text>
+      `).join("")}
+      <line x1="${padX}" y1="${zeroY}" x2="${width - padX}" y2="${zeroY}" stroke="var(--muted)" stroke-width="0.8" opacity="0.5"/>
+      ${paths}
+    </svg>
+    <div class="chart-x-axis compare-x-axis"></div>
+  `;
+
+  // X-axis labels.
+  const xAxis = body.querySelector(".compare-x-axis");
+  const steps = [0, 0.25, 0.5, 0.75, 1];
+  xAxis.innerHTML = steps.map((f) => {
+    const ts = tsMin + tsSpan * f;
+    const date = new Date(ts * 1000);
+    return `<span>${date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}</span>`;
+  }).join("");
+
+  // Legend with current % change.
+  legendBox.innerHTML = series.map((s, idx) => {
+    const stroke = COMPARE_PALETTE[idx % COMPARE_PALETTE.length];
+    const lastPct = s.points[s.points.length - 1].pct;
+    const sign = lastPct >= 0 ? "+" : "";
+    const cls = lastPct >= 0 ? "positive" : "negative";
+    return `
+      <span class="compare-legend-item">
+        <span class="compare-swatch" style="background:${stroke}"></span>
+        <span class="compare-label">${s.card.label || s.card.symbol}</span>
+        <span class="compare-value ${cls}">${sign}${lastPct.toFixed(2)}%</span>
+      </span>
+    `;
+  }).join("");
+}
+
+function closeCompareModal() {
+  const modal = document.getElementById("compare-modal");
+  if (modal) {
+    modal.classList.remove("open");
+    document.body.style.overflow = "";
+    setTimeout(() => modal.remove(), 200);
+  }
+}
+
 function renderPrices(cards) {
   el.priceList.innerHTML = "";
   cards.forEach((card) => {
@@ -1034,11 +1238,20 @@ function renderWeather(cities) {
 }
 
 function renderStocks(cards) {
+  trackMarketCards(state.stockCards, cards);
   renderMarketCards(el.stocksList, cards, { showSparkline: true });
 }
 
 function renderCrypto(cards) {
+  trackMarketCards(state.cryptoCards, cards);
   renderMarketCards(el.cryptoList, cards, { showSparkline: true });
+}
+
+// Remember cards (default + custom) so the compare tool can read their history.
+function trackMarketCards(store, cards) {
+  (cards || []).forEach((card) => {
+    if (card && card.symbol) store.set(card.symbol, card);
+  });
 }
 
 function flashPriceChange(node, key, newPrice) {
@@ -2551,6 +2764,9 @@ async function fetchCustomCrypto() {
 
 function appendCustomCards(container, cards, type) {
   if (!container) return;
+  // Track for the compare tool.
+  const store = type === "stock" ? state.stockCards : state.cryptoCards;
+  trackMarketCards(store, cards);
   // Remove old custom cards.
   container.querySelectorAll(".custom-card").forEach((el) => el.remove());
   cards.forEach((card) => {
@@ -2860,6 +3076,10 @@ function bindEvents() {
   if (addStockBtn) addStockBtn.addEventListener("click", () => promptAddSymbol("stock"));
   const addCryptoBtn = document.getElementById("add-crypto-btn");
   if (addCryptoBtn) addCryptoBtn.addEventListener("click", () => promptAddSymbol("crypto"));
+  const compareStockBtn = document.getElementById("compare-stock-btn");
+  if (compareStockBtn) compareStockBtn.addEventListener("click", () => openCompareModal("stock"));
+  const compareCryptoBtn = document.getElementById("compare-crypto-btn");
+  if (compareCryptoBtn) compareCryptoBtn.addEventListener("click", () => openCompareModal("crypto"));
   const addForexBtn = document.getElementById("add-forex-btn");
   if (addForexBtn) addForexBtn.addEventListener("click", promptAddForex);
   const locateBtn = document.getElementById("locate-weather-btn");
