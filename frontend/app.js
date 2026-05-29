@@ -2043,11 +2043,25 @@ function locateAndAddWeather() {
     async (pos) => {
       const { latitude, longitude } = pos.coords;
       try {
-        const response = await fetch(`/api/weather/location?lat=${latitude}&lon=${longitude}&name=Vị trí của tôi`);
+        // Reverse geocode to get actual city name.
+        const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=&latitude=${latitude}&longitude=${longitude}&count=1&language=vi`);
+        let cityName = "Vị trí của tôi";
+        try {
+          // Use a reverse geocoding approach: find nearest city.
+          const revRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=vi`);
+          const revData = await revRes.json();
+          cityName = revData.city || revData.locality || revData.principalSubdivision || "Vị trí của tôi";
+        } catch (e) { /* fallback to generic name */ }
+
+        // Remove existing "my location" card to avoid duplicates.
+        const existing = el.weatherList.querySelector('.custom-card[data-is-my-location="true"]');
+        if (existing) existing.remove();
+
+        const response = await fetch(`/api/weather/location?lat=${latitude}&lon=${longitude}&name=${encodeURIComponent(cityName)}`);
         const data = await response.json();
         if (data.error) throw new Error(data.error);
-        // Save to localStorage for persistence.
-        saveCustomCity({ lat: latitude, lon: longitude, name: "Vị trí của tôi" });
+        data._isMyLocation = true;
+        saveCustomCity({ lat: latitude, lon: longitude, name: cityName, isMyLocation: true });
         appendWeatherCard(data);
       } catch (e) {
         console.error("Weather location failed:", e);
@@ -2145,6 +2159,7 @@ function appendWeatherCard(city) {
   const card = document.createElement("article");
   card.className = "weather-card custom-card";
   card.dataset.cityName = city.city || "";
+  if (city._isMyLocation) card.dataset.isMyLocation = "true";
   card.innerHTML = `
     <button class="remove-watchlist-btn" type="button" title="Xóa">
       <i data-lucide="x"></i>
@@ -2200,8 +2215,13 @@ function appendWeatherCard(city) {
 
 function saveCustomCity(city) {
   try {
-    const list = JSON.parse(localStorage.getItem(LS_KEYS.customCities) || "[]");
-    if (list.some((c) => c.name === city.name)) return;
+    let list = JSON.parse(localStorage.getItem(LS_KEYS.customCities) || "[]");
+    // Remove old entry with same name or old "my location".
+    if (city.isMyLocation) {
+      list = list.filter((c) => !c.isMyLocation);
+    } else {
+      list = list.filter((c) => c.name !== city.name);
+    }
     list.push(city);
     localStorage.setItem(LS_KEYS.customCities, JSON.stringify(list.slice(-10)));
   } catch (e) { /* ignore */ }
