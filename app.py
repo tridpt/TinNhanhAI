@@ -131,7 +131,7 @@ def crypto_custom():
     import json as _json
     from urllib.parse import quote
 
-    from services.crypto import _fetch_crypto_klines
+    from services.crypto import _fetch_crypto_klines, _format_change, _format_usd
 
     raw = request.args.get("symbols", "")
     symbols = [s.strip().upper() for s in raw.split(",") if s.strip()][:20]
@@ -168,8 +168,8 @@ def crypto_custom():
                 "price": price,
                 "change": change,
                 "change_percent": change_pct,
-                "price_text": f"{price:,.2f} USD" if price < 1000 else f"{price:,.0f} USD",
-                "change_text": f"{'+' if change >= 0 else ''}{change:,.2f} ({'+' if change_pct >= 0 else ''}{change_pct:.2f}%)",
+                "price_text": _format_usd(price),
+                "change_text": _format_change(change, change_pct),
                 "unit": "USD",
                 "history": history_map.get(symbol, []),
             }

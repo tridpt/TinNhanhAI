@@ -122,16 +122,42 @@ def fetch_crypto_prices() -> list[dict[str, Any]]:
 
 
 def _format_usd(value: float) -> str:
-    if value >= 1000:
+    if value is None:
+        return ""
+    av = abs(value)
+    if av >= 1000:
         return f"{value:,.0f} USD"
-    if value >= 1:
+    if av >= 1:
         return f"{value:,.2f} USD"
-    return f"{value:,.4f} USD"
+    if av >= 0.01:
+        return f"{value:,.4f} USD"
+    if av > 0:
+        # Very small coins (SHIB, PEPE...): show enough decimals to reveal the
+        # significant digits, then trim trailing zeros so it stays readable.
+        import math
+
+        decimals = min(12, int(math.floor(-math.log10(av))) + 4)
+        text = f"{value:.{decimals}f}".rstrip("0").rstrip(".")
+        return f"{text} USD"
+    return "0 USD"
 
 
 def _format_change(value: float, percent: float) -> str:
-    sign = "+" if value >= 0 else ""
-    return f"{sign}{value:,.2f} ({sign}{percent:.2f}%)"
+    av = abs(value)
+    if av >= 1:
+        num = f"{av:,.2f}"
+    elif av >= 0.01:
+        num = f"{av:,.4f}"
+    elif av > 0:
+        import math
+
+        decimals = min(12, int(math.floor(-math.log10(av))) + 3)
+        num = f"{av:.{decimals}f}".rstrip("0").rstrip(".")
+    else:
+        num = "0"
+    val_sign = "-" if value < 0 else "+"
+    pct_sign = "-" if percent < 0 else "+"
+    return f"{val_sign}{num} ({pct_sign}{abs(percent):.2f}%)"
 
 
 def get_crypto_payload(*, force: bool = False) -> dict[str, Any]:

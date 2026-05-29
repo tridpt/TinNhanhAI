@@ -353,6 +353,21 @@ async function goToPage(currentTopic, page) {
   }
 }
 
+// Format a number for display, keeping enough significant decimals for very
+// small values (e.g. SHIB at 0.000005) instead of rounding them to "0".
+function formatSmartNumber(value, maxFrac = 2) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  const av = Math.abs(n);
+  if (av === 0) return "0";
+  if (av >= 0.01) {
+    return n.toLocaleString("vi-VN", { maximumFractionDigits: maxFrac });
+  }
+  // Show ~4 significant digits below 0.01, then trim trailing zeros.
+  const decimals = Math.min(12, Math.floor(-Math.log10(av)) + 4);
+  return n.toFixed(decimals).replace(/0+$/, "").replace(/\.$/, "");
+}
+
 function renderSparkline(container, history, options = {}) {
   if (!container) return;
   container.innerHTML = "";
@@ -1021,7 +1036,7 @@ function renderMarketCards(container, cards, options = {}) {
     if (options.showSparkline && card.history && card.history.length >= 2) {
       const sparkContainer = node.querySelector(".market-spark");
       renderSparkline(sparkContainer, card.history, {
-        formatTick: (value) => Number(value).toLocaleString("vi-VN", { maximumFractionDigits: 2 }),
+        formatTick: (value) => formatSmartNumber(value, 2),
         label: card.label || card.key || "",
       });
     }
@@ -2461,7 +2476,7 @@ function appendCustomCards(container, cards, type) {
     container.appendChild(node);
     if (card.history && card.history.length >= 2) {
       renderSparkline(node.querySelector(".market-spark"), card.history, {
-        formatTick: (v) => Number(v).toLocaleString("vi-VN", { maximumFractionDigits: 2 }),
+        formatTick: (v) => formatSmartNumber(v, 2),
         label: card.label || card.symbol,
       });
     }
