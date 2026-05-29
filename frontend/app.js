@@ -972,49 +972,133 @@ async function loadDashboard(force = false, options = {}) {
   if (!state.dashboard && !silent) {
     renderSkeletons();
   }
-  try {
-    const response = await fetch(`/api/dashboard${force ? "?force=1" : ""}`);
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data?.error) {
-      const offline = data?.error === "offline";
-      setHealth(offline ? "Offline" : "Không tải được dữ liệu", offline ? "warn" : "err");
-      if (!state.dashboard) {
-        el.briefText.textContent = offline
-          ? "Bạn đang offline. Hiển thị dữ liệu đã lưu trước đó (nếu có)."
-          : "Không tải được dữ liệu. Hãy thử làm mới lại.";
+
+  const forceParam = force ? "?force=1" : "";
+
+  // Fire all requests in parallel — render each section as it arrives.
+  const sections = [
+    { url: `/api/health`, render: (data) => {
+      state.aiEnabled = Boolean(data.ai_enabled);
+      setHealth(state.aiEnabled ? "AI sẵn sàng" : "AI tắt", state.aiEnabled ? "ok" : "warn");
+    }},
+    { url: `/api/news/all${forceParam}`, render: (data) => {
+      if (!state.dashboard) state.dashboard = {};
+      state.dashboard.topics = [data];
+      // Render the "all" topic immediately.
+      renderTopics([data]);
+      renderNews(data);
+      // Update metrics with what we have so far.
+      if (data.total) {
+        el.metricArticles.textContent = data.total;
       }
-      return;
+      if (data.source_count) {
+        el.metricSources.textContent = data.source_count;
+      }
+      if (data.summary) {
+        el.briefText.textContent = data.summary;
+      }
+    }},
+    { url: `/api/prices${forceParam}`, render: (data) => {
+      if (!state.dashboard) state.dashboard = {};
+      state.dashboard.prices = data;
+      renderPrices(data.cards || []);
+      renderVnPrices(data.vn_cards || []);
+      renderGoldCompare(data.vn_cards || []);
+    }},
+    { url: `/api/crypto${forceParam}`, render: (data) => {
+      if (!state.dashboard) state.dashboard = {};
+      state.dashboard.crypto = data;
+      renderCrypto(data.cards || []);
+    }},
+    { url: `/api/stocks${forceParam}`, render: (data) => {
+      if (!state.dashboard) state.dashboard = {};
+      state.dashboard.stocks = data;
+      renderStocks(data.cards || []);
+    }},
+    { url: `/api/weather${forceParam}`, render: (data) => {
+      if (!state.dashboard) state.dashboard = {};
+      state.dashboard.weather = data;
+      renderWeather(data.cities || []);
+    }},
+  ];
+
+  // Load all remaining topics in background after "all" renders.
+  const topicKeys = topicOrder.filter((k) => k !== "all");
+
+  const promises = sections.map(async (section) => {
+    try {
+      const response = await fetch(section.url);
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && !data.error) {
+        section.render(data);
+      }
+    } catch (error) {
+      // Individual section failure doesn't block others.
     }
-    const newCount = countNewArticles(data);
+  });
+
+  // Also fetch individual topics for the tab switcher.
+  const topicPromises = topicKeys.map(async (key) => {
+    try {
+      const response = await fetch(`/api/news/${key}${forceParam}`);
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && !data.error) {
+        if (!state.dashboard) state.dashboard = {};
+        if (!state.dashboard.topicMap) state.dashboard.topicMap = {};
+        state.dashboard.topicMap[key] = data;
+      }
+    } catch (error) {
+      // skip
+    }
+  });
+
+  await Promise.allSettled([...promises, ...topicPromises]);
+
+  // After all loaded, rebuild topic tabs with full data.
+  if (state.dashboard && state.dashboard.topicMap) {
+    const allTopics = topicOrder.map((key) => {
+      if (key === "all" && state.dashboard.topics && state.dashboard.topics[0]) {
+        return state.dashboard.topics[0];
+      }
+      return state.dashboard.topicMap[key] || { key, label: topicMeta[key]?.label || key, items: [] };
+    }).filter(Boolean);
+    renderTopics(allTopics);
+    // Update metrics.
+    const totalArticles = allTopics.reduce((sum, t) => sum + (t.total || t.items?.length || 0), 0);
+    const totalSources = allTopics.filter((t) => t.key !== "all").reduce((sum, t) => sum + (t.source_count || 0), 0);
+    el.metricTopics.textContent = allTopics.filter((t) => t.key !== "all").length;
+    el.metricArticles.textContent = totalArticles;
+    el.metricSources.textContent = totalSources;
+    el.metricUpdated.textContent = formatTime(new Date().toISOString());
+  }
+
+  // Track new items for badge.
+  if (state.dashboard) {
+    const newCount = countNewArticles(state.dashboard);
     if (silent && newCount > 0) {
-      // The user is mid-read; don't yank the list out from under them. Mark
-      // the badge instead so they choose when to scroll back to top.
       state.newItemCount = newCount;
       updateNewItemsBadge();
     } else {
-      // Either it's an explicit refresh or the very first load — render now.
-      seedKnownUrls(data);
+      seedKnownUrls(state.dashboard);
       state.newItemCount = 0;
       updateNewItemsBadge();
-      renderDashboard(data);
     }
-  } catch (error) {
-    console.error(error);
-    if (!silent) {
-      setHealth("Không tải được dữ liệu", "err");
-      if (!state.dashboard) {
-        el.briefText.textContent = "Không tải được dữ liệu. Hãy thử làm mới lại.";
-        el.newsList.innerHTML = `<div class="empty-state">Không lấy được tin trong lần này.</div>`;
-        el.priceList.innerHTML = `<div class="empty-state">Không lấy được giá trong lần này.</div>`;
-      }
-    }
-  } finally {
-    if (!silent) el.refreshBtn.disabled = false;
   }
+
+  if (!silent) el.refreshBtn.disabled = false;
 }
 
 function collectArticleUrls(dashboard) {
   const urls = [];
+  // From topicMap (new structure).
+  if (dashboard?.topicMap) {
+    for (const topic of Object.values(dashboard.topicMap)) {
+      for (const item of topic.items || []) {
+        if (item?.url) urls.push(item.url);
+      }
+    }
+  }
+  // From topics array (old structure / "all" topic).
   for (const topic of dashboard?.topics || []) {
     for (const item of topic.items || []) {
       if (item?.url) urls.push(item.url);
