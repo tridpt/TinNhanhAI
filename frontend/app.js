@@ -2909,6 +2909,8 @@ async function init() {
   loadSavedWeatherCities();
   startAutoRefresh();
   registerServiceWorker();
+  initInstallPrompt();
+  initOfflineIndicator();
 }
 
 // One-time cleanup: older versions stored free-text coin names (e.g.
@@ -2937,8 +2939,145 @@ function registerServiceWorker() {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
+      .then((reg) => {
+        // Detect a newer service worker waiting to take over.
+        reg.addEventListener("updatefound", () => {
+          const newWorker = reg.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener("statechange", () => {
+            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+              showUpdateToast(reg);
+            }
+          });
+        });
+      })
       .catch((err) => console.warn("SW registration failed:", err));
+
+    // When the controller changes (after skipWaiting), reload once to get fresh assets.
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloaded) return;
+      reloaded = true;
+      window.location.reload();
+    });
   });
+}
+
+// Toast inviting the user to load the new version.
+function showUpdateToast(reg) {
+  let toast = document.getElementById("update-toast");
+  if (toast) return;
+  toast = document.createElement("div");
+  toast.id = "update-toast";
+  toast.className = "pwa-toast";
+  toast.innerHTML = `
+    <i data-lucide="sparkles"></i>
+    <span>Đã có bản cập nhật mới</span>
+    <button type="button" class="pwa-toast-btn">Tải lại</button>
+  `;
+  document.body.appendChild(toast);
+  lucide.createIcons();
+  toast.querySelector(".pwa-toast-btn").addEventListener("click", () => {
+    const waiting = reg.waiting;
+    if (waiting) {
+      waiting.postMessage("skipWaiting");
+    } else {
+      window.location.reload();
+    }
+    toast.remove();
+  });
+  // Auto-dismiss after 12s if ignored.
+  setTimeout(() => toast.remove(), 12000);
+}
+
+// --- PWA install prompt ------------------------------------------------------
+
+let _deferredInstallPrompt = null;
+
+function initInstallPrompt() {
+  const installBtn = document.getElementById("install-btn");
+
+  // Hide the button if already running as an installed app.
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches
+    || window.navigator.standalone === true;
+  if (isStandalone) {
+    if (installBtn) installBtn.hidden = true;
+    return;
+  }
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    // Chrome/Edge/Android: stash the event and reveal our own button.
+    e.preventDefault();
+    _deferredInstallPrompt = e;
+    if (installBtn) installBtn.hidden = false;
+  });
+
+  if (installBtn) {
+    installBtn.addEventListener("click", async () => {
+      if (!_deferredInstallPrompt) {
+        // iOS Safari has no prompt API — guide the user instead.
+        showIosInstallHint();
+        return;
+      }
+      _deferredInstallPrompt.prompt();
+      try {
+        await _deferredInstallPrompt.userChoice;
+      } catch (e) { /* ignore */ }
+      _deferredInstallPrompt = null;
+      installBtn.hidden = true;
+    });
+
+    // iOS: no beforeinstallprompt, but still offer the button with a hint.
+    const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+    if (isIos && !isStandalone) installBtn.hidden = false;
+  }
+
+  window.addEventListener("appinstalled", () => {
+    _deferredInstallPrompt = null;
+    if (installBtn) installBtn.hidden = true;
+  });
+}
+
+function showIosInstallHint() {
+  let hint = document.getElementById("ios-install-hint");
+  if (hint) { hint.remove(); return; }
+  hint = document.createElement("div");
+  hint.id = "ios-install-hint";
+  hint.className = "pwa-toast pwa-toast-hint";
+  hint.innerHTML = `
+    <i data-lucide="share"></i>
+    <span>Bấm nút Chia sẻ rồi chọn "Thêm vào MH chính" để cài app.</span>
+    <button type="button" class="pwa-toast-btn">OK</button>
+  `;
+  document.body.appendChild(hint);
+  lucide.createIcons();
+  hint.querySelector(".pwa-toast-btn").addEventListener("click", () => hint.remove());
+  setTimeout(() => hint.remove(), 10000);
+}
+
+// --- Offline / online indicator ----------------------------------------------
+
+function initOfflineIndicator() {
+  const update = () => {
+    const offline = !navigator.onLine;
+    document.body.classList.toggle("is-offline", offline);
+    let banner = document.getElementById("offline-banner");
+    if (offline) {
+      if (!banner) {
+        banner = document.createElement("div");
+        banner.id = "offline-banner";
+        banner.className = "offline-banner";
+        banner.innerHTML = `<i data-lucide="wifi-off"></i> Đang offline — hiển thị dữ liệu đã lưu`;
+        document.body.appendChild(banner);
+        lucide.createIcons();
+      }
+    } else if (banner) {
+      banner.remove();
+    }
+  };
+  window.addEventListener("online", update);
+  window.addEventListener("offline", update);
+  update();
 }
 
 init();

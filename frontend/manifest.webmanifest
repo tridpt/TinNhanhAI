@@ -1,11 +1,13 @@
 {
   "name": "TinNhanh AI",
   "short_name": "TinNhanh",
+  "id": "/",
   "description": "Tin nóng mỗi ngày, bảng giá thị trường, và tra cứu nhanh bằng AI.",
   "lang": "vi-VN",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#f5f7fb",
   "theme_color": "#0f766e",

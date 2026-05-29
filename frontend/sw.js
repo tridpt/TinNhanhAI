@@ -10,7 +10,7 @@
  * - Anything else (e.g. fonts, lucide CDN) falls through to the network.
  */
 
-const SW_VERSION = "tinnhanh-v15";
+const SW_VERSION = "tinnhanh-v16";
 const SHELL_CACHE = `shell-${SW_VERSION}`;
 const API_CACHE = `api-${SW_VERSION}`;
 
@@ -21,6 +21,15 @@ const SHELL_ASSETS = [
   "/app.js",
   "/manifest.webmanifest",
   "/icons/icon.svg",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+];
+
+// Cross-origin assets worth keeping for offline (icon font library, fonts).
+const CDN_PREFIXES = [
+  "https://unpkg.com/lucide",
+  "https://fonts.googleapis.com",
+  "https://fonts.gstatic.com",
 ];
 
 self.addEventListener("install", (event) => {
@@ -49,6 +58,26 @@ self.addEventListener("activate", (event) => {
 
 function isApiRequest(url) {
   return url.pathname.startsWith("/api/");
+}
+
+function isCacheableCdn(url) {
+  return CDN_PREFIXES.some((prefix) => url.href.startsWith(prefix));
+}
+
+// Stale-while-revalidate for CDN assets: serve cached copy instantly (works
+// offline), refresh in the background when online.
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(SHELL_CACHE);
+  const cached = await cache.match(request);
+  const fetchPromise = fetch(request)
+    .then((response) => {
+      if (response && (response.ok || response.type === "opaque")) {
+        cache.put(request, response.clone());
+      }
+      return response;
+    })
+    .catch(() => cached);
+  return cached || fetchPromise;
 }
 
 async function networkFirstApi(request) {
@@ -94,7 +123,13 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return; // let CDN/cross-origin pass
+  if (url.origin !== self.location.origin) {
+    // Cache select CDN assets (lucide, fonts) so icons render offline.
+    if (isCacheableCdn(url)) {
+      event.respondWith(staleWhileRevalidate(request));
+    }
+    return; // other cross-origin requests pass through untouched
+  }
 
   if (isApiRequest(url)) {
     event.respondWith(networkFirstApi(request));
