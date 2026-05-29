@@ -137,7 +137,7 @@ def fetch_stock_indices() -> list[dict[str, Any]]:
 
 
 def _fetch_yahoo_stock(symbol: str) -> dict[str, Any] | None:
-    """Fetch a single VN stock price + 30-day history from Yahoo Finance."""
+    """Fetch a single stock price + 30-day history from Yahoo Finance."""
 
     from urllib.parse import quote
 
@@ -160,6 +160,7 @@ def _fetch_yahoo_stock(symbol: str) -> dict[str, Any] | None:
     meta = result[0].get("meta", {})
     price = meta.get("regularMarketPrice")
     prev_close = meta.get("chartPreviousClose") or meta.get("previousClose")
+    currency = meta.get("currency") or "USD"
     if price is None:
         return None
     change = (price - prev_close) if prev_close else 0
@@ -178,6 +179,7 @@ def _fetch_yahoo_stock(symbol: str) -> dict[str, Any] | None:
         "price": float(price),
         "change": float(change),
         "change_percent": float(change_pct),
+        "currency": currency,
         "history": history,
     }
 
