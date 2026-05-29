@@ -1796,29 +1796,103 @@ function saveWatchlist(key, list) {
 function promptAddSymbol(type) {
   const isStock = type === "stock";
   const placeholder = isStock
-    ? "Nhập mã CK (vd: VNM.VN, FPT.VN, ACB.VN)"
-    : "Nhập symbol (vd: DOGEUSDT, TRXUSDT, MATICUSDT)";
-  const input = prompt(placeholder);
-  if (!input || !input.trim()) return;
+    ? "VNM.VN, FPT.VN, ACB.VN"
+    : "DOGEUSDT, TRXUSDT, MATICUSDT";
+  const title = isStock ? "Thêm mã chứng khoán" : "Thêm coin crypto";
 
-  const symbol = input.trim().toUpperCase();
-  const key = isStock ? LS_KEYS.customStocks : LS_KEYS.customCrypto;
-  const list = loadWatchlist(key);
+  // Create inline modal instead of browser prompt.
+  let overlay = document.getElementById("watchlist-modal");
+  if (overlay) overlay.remove();
 
-  if (list.includes(symbol)) {
-    alert(`${symbol} đã có trong danh sách.`);
-    return;
+  overlay = document.createElement("div");
+  overlay.id = "watchlist-modal";
+  overlay.className = "watchlist-modal";
+  overlay.innerHTML = `
+    <div class="watchlist-backdrop"></div>
+    <div class="watchlist-dialog">
+      <h3>${title}</h3>
+      <p class="muted">Nhập symbol rồi bấm Thêm. Ví dụ: ${placeholder}</p>
+      <form class="watchlist-form">
+        <input type="text" class="watchlist-input" placeholder="${placeholder}" autocomplete="off" autofocus>
+        <div class="watchlist-actions">
+          <button type="submit" class="primary-btn">Thêm</button>
+          <button type="button" class="watchlist-cancel chip">Huỷ</button>
+        </div>
+      </form>
+      <div class="watchlist-current"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector(".watchlist-input");
+  const form = overlay.querySelector(".watchlist-form");
+  const cancel = overlay.querySelector(".watchlist-cancel");
+  const backdrop = overlay.querySelector(".watchlist-backdrop");
+  const currentList = overlay.querySelector(".watchlist-current");
+
+  function close() { overlay.remove(); }
+  cancel.addEventListener("click", close);
+  backdrop.addEventListener("click", close);
+  document.addEventListener("keydown", function escHandler(e) {
+    if (e.key === "Escape") { close(); document.removeEventListener("keydown", escHandler); }
+  });
+
+  // Show current watchlist.
+  function renderCurrent() {
+    const key = isStock ? LS_KEYS.customStocks : LS_KEYS.customCrypto;
+    const list = loadWatchlist(key);
+    if (!list.length) {
+      currentList.innerHTML = `<p class="muted">Chưa có symbol nào.</p>`;
+      return;
+    }
+    currentList.innerHTML = `
+      <p class="watchlist-current-title">Đang theo dõi:</p>
+      <div class="watchlist-chips">
+        ${list.map((s) => `<span class="watchlist-chip">${s}<button type="button" data-symbol="${s}" class="watchlist-chip-remove">×</button></span>`).join("")}
+      </div>
+    `;
+    currentList.querySelectorAll(".watchlist-chip-remove").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        removeFromWatchlist(type, btn.dataset.symbol);
+        renderCurrent();
+      });
+    });
   }
+  renderCurrent();
 
-  list.push(symbol);
-  saveWatchlist(key, list);
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const value = input.value.trim().toUpperCase();
+    if (!value) return;
 
-  // Refresh the relevant section.
-  if (isStock) {
-    fetchCustomStocks();
-  } else {
-    fetchCustomCrypto();
-  }
+    const key = isStock ? LS_KEYS.customStocks : LS_KEYS.customCrypto;
+    const list = loadWatchlist(key);
+
+    // Support comma-separated input.
+    const symbols = value.split(",").map((s) => s.trim()).filter(Boolean);
+    let added = 0;
+    symbols.forEach((symbol) => {
+      if (!list.includes(symbol)) {
+        list.push(symbol);
+        added++;
+      }
+    });
+
+    if (added === 0) {
+      input.value = "";
+      input.placeholder = "Đã có trong danh sách!";
+      return;
+    }
+
+    saveWatchlist(key, list);
+    input.value = "";
+    renderCurrent();
+
+    if (isStock) fetchCustomStocks();
+    else fetchCustomCrypto();
+  });
+
+  setTimeout(() => input.focus(), 50);
 }
 
 function removeFromWatchlist(type, symbol) {
