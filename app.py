@@ -377,6 +377,9 @@ def forex_custom():
         if not any((buy_transfer, buy_cash, sell)):
             continue
         buy = buy_transfer or buy_cash
+        # Record into history store for sparkline accumulation.
+        from services.history import record_price as _rec
+        _rec(f"forex_{code.lower()}_vnd", sell or buy, label=f"{code}/VND")
         cards.append({
             "key": f"forex_{code.lower()}_vnd",
             "label": f"{code}/VND",
