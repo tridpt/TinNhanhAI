@@ -1988,6 +1988,9 @@ function populateCurrencyList(codes) {
 // --- Custom forex ------------------------------------------------------------
 
 let _availableForexCodes = null;
+// Monotonic counter so overlapping fetchCustomForex() calls don't clobber
+// each other — only the newest invocation is allowed to paint the cards.
+let _forexFetchSeq = 0;
 
 async function fetchAvailableForex() {
   if (_availableForexCodes) return _availableForexCodes;
@@ -2003,7 +2006,15 @@ async function fetchAvailableForex() {
 
 async function fetchCustomForex() {
   const codes = JSON.parse(localStorage.getItem(LS_KEYS.customForex) || "[]");
-  if (!codes.length) return;
+  if (!codes.length) {
+    // List emptied — clear any leftover custom cards immediately.
+    _forexFetchSeq += 1;
+    if (el.forexList) el.forexList.querySelectorAll(".custom-card").forEach((c) => c.remove());
+    return;
+  }
+  // Guard against overlapping calls: only the latest invocation may paint.
+  _forexFetchSeq += 1;
+  const mySeq = _forexFetchSeq;
   // Try Vietcombank first, then fallback to open.er-api for non-VCB currencies.
   try {
     const response = await fetch(`/api/forex/custom?codes=${encodeURIComponent(codes.join(","))}`);
@@ -2050,6 +2061,9 @@ async function fetchCustomForex() {
         }
       } catch (e) { /* skip */ }
     }
+    // A newer fetch started while we were awaiting — discard this stale result
+    // so we don't overwrite freshly added currencies.
+    if (mySeq !== _forexFetchSeq) return;
     appendCustomForexCards([...vcbCards, ...extraCards]);
   } catch (e) { /* silent */ }
 }
