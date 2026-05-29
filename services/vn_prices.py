@@ -166,6 +166,57 @@ def _fetch_sjc_html_fallback() -> dict[str, Any] | None:
     }
 
 
+FOREX_CURRENCIES = [
+    {"code": "USD", "label": "USD/VND", "icon": "dollar-sign"},
+    {"code": "EUR", "label": "EUR/VND", "icon": "euro"},
+    {"code": "JPY", "label": "JPY/VND", "icon": "yen"},
+    {"code": "GBP", "label": "GBP/VND", "icon": "pound-sterling"},
+    {"code": "AUD", "label": "AUD/VND", "icon": "banknote"},
+    {"code": "SGD", "label": "SGD/VND", "icon": "banknote"},
+    {"code": "CNY", "label": "CNY/VND", "icon": "banknote"},
+    {"code": "KRW", "label": "KRW/VND", "icon": "banknote"},
+]
+
+
+def fetch_all_forex() -> list[dict[str, Any]]:
+    """Pull multiple FX rates from Vietcombank in one call."""
+
+    today = datetime.now(LOCAL_TZ).strftime("%Y-%m-%d")
+    url = f"https://www.vietcombank.com.vn/api/exchangerates?date={today}"
+    try:
+        response = requests.get(url, headers=USER_AGENT, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+    except Exception:
+        return []
+
+    rates = data.get("Data") or []
+    by_code = {str(row.get("currencyCode", "")).upper(): row for row in rates}
+
+    cards: list[dict[str, Any]] = []
+    for spec in FOREX_CURRENCIES:
+        row = by_code.get(spec["code"])
+        if not row:
+            continue
+        buy_cash = _parse_vn_number(str(row.get("cash", "")))
+        buy_transfer = _parse_vn_number(str(row.get("transfer", "")))
+        sell = _parse_vn_number(str(row.get("sell", "")))
+        if not any((buy_cash, buy_transfer, sell)):
+            continue
+        cards.append({
+            "key": f"forex_{spec['code'].lower()}_vnd",
+            "label": spec["label"],
+            "provider": "Vietcombank",
+            "icon": spec["icon"],
+            "buy": buy_transfer or buy_cash,
+            "sell": sell,
+            "unit": f"VND/{spec['code']}",
+            "updated_label": _now_label(),
+            "source_url": "https://www.vietcombank.com.vn/vi-VN/KHCN/Cong-cu-Tien-ich/Ty-gia",
+        })
+    return cards
+
+
 def fetch_usd_vnd() -> dict[str, Any] | None:
     """Pull Vietcombank USD buy/sell rate from public exrate JSON feed."""
 
@@ -302,16 +353,17 @@ def get_vn_prices(*, force: bool = False) -> dict[str, Any]:
 
     from .vn_gold import fetch_all_vn_gold
 
-    cards: list[dict[str, Any]] = []
-    fx = fetch_usd_vnd()
-    if fx:
-        cards.append(fx)
-    cards.extend(fetch_petrolimex())
-    cards.extend(fetch_all_vn_gold())
+    # Forex (separate group)
+    forex = fetch_all_forex()
+    # Gold + petrol (Vietnam commodity prices)
+    gold_petrol: list[dict[str, Any]] = []
+    gold_petrol.extend(fetch_petrolimex())
+    gold_petrol.extend(fetch_all_vn_gold())
 
     payload = {
         "generated_at": datetime.now(LOCAL_TZ).isoformat(),
-        "cards": [_format_card(card) for card in cards],
+        "cards": [_format_card(card) for card in gold_petrol],
+        "forex_cards": [_format_card(card) for card in forex],
     }
     CACHE.set(cache_key, payload, config.PRICE_REFRESH_SECONDS)
     return payload

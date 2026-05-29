@@ -132,10 +132,12 @@ def get_prices_payload(*, force: bool = False) -> dict[str, Any]:
         quote_data["history"] = get_history(quote_data["key"])
         cards.append(quote_data)
 
+    vn_payload = get_vn_prices(force=force)
     payload = {
         "generated_at": datetime.now(LOCAL_TZ).isoformat(),
         "cards": cards,
-        "vn_cards": get_vn_prices(force=force).get("cards", []),
+        "vn_cards": vn_payload.get("cards", []),
+        "forex_cards": vn_payload.get("forex_cards", []),
     }
     CACHE.set(cache_key, payload, config.PRICE_REFRESH_SECONDS)
     return payload

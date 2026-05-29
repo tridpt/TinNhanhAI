@@ -58,6 +58,7 @@ const el = {
   priceList: document.getElementById("price-list"),
   vnPriceList: document.getElementById("vn-price-list"),
   vnGoldCompare: document.getElementById("vn-gold-compare"),
+  forexList: document.getElementById("forex-list"),
   exportPricesBtn: document.getElementById("export-prices-btn"),
   briefText: document.getElementById("brief-text"),
   answerBox: document.getElementById("answer-box"),
@@ -1151,6 +1152,38 @@ function updateMetrics(dashboard) {
   el.briefText.textContent = dashboard.brief || "Chưa có bản tóm tắt.";
 }
 
+function renderForex(cards) {
+  if (!el.forexList) return;
+  el.forexList.innerHTML = "";
+  if (!cards || !cards.length) {
+    el.forexList.innerHTML = `<div class="empty-state">Chưa lấy được tỷ giá.</div>`;
+    return;
+  }
+  cards.forEach((card) => {
+    const node = el.vnPriceTemplate.content.firstElementChild.cloneNode(true);
+    const icon = node.querySelector(".price-icon i");
+    icon.setAttribute("data-lucide", card.icon || "banknote");
+    node.querySelector(".price-label").textContent = card.label || "";
+    node.querySelector(".price-symbol").textContent = card.unit || "";
+    node.querySelector(".price-value").textContent = card.price_text || "Chưa có dữ liệu";
+    node.querySelector(".price-unit").textContent = "";
+    const providerEl = node.querySelector(".price-provider");
+    if (providerEl) {
+      providerEl.textContent = card.provider || "";
+      providerEl.style.display = card.provider ? "" : "none";
+    }
+    node.querySelector(".price-updated").textContent = card.updated_label
+      ? `Cập nhật: ${card.updated_label}`
+      : "Cập nhật: chưa rõ";
+    renderSparkline(node.querySelector(".price-spark"), card.history, {
+      formatTick: (value) => Number(value).toLocaleString("vi-VN"),
+      label: card.label || card.key || "",
+    });
+    el.forexList.appendChild(node);
+  });
+  lucide.createIcons();
+}
+
 function renderVnPrices(cards) {
   if (!el.vnPriceList) return;
   el.vnPriceList.innerHTML = "";
@@ -1193,6 +1226,7 @@ function renderDashboard(dashboard) {
   renderPrices(dashboard.prices?.cards || []);
   renderVnPrices(dashboard.prices?.vn_cards || []);
   renderGoldCompare(dashboard.prices?.vn_cards || []);
+  renderForex(dashboard.prices?.forex_cards || []);
   renderWeather(dashboard.weather?.cities || []);
   renderStocks(dashboard.stocks?.cards || []);
   renderCrypto(dashboard.crypto?.cards || []);
@@ -1257,6 +1291,7 @@ async function loadDashboard(force = false, options = {}) {
       renderPrices(data.cards || []);
       renderVnPrices(data.vn_cards || []);
       renderGoldCompare(data.vn_cards || []);
+      renderForex(data.forex_cards || []);
     }},
     { url: `/api/crypto${forceParam}`, render: (data) => {
       if (!state.dashboard) state.dashboard = {};
@@ -1458,6 +1493,7 @@ async function refreshMarkets() {
       const data = await pricesRes.value.json();
       renderPrices(data.cards || []);
       renderVnPrices(data.vn_cards || []);
+      renderForex(data.forex_cards || []);
     }
     if (cryptoRes.status === "fulfilled" && cryptoRes.value.ok) {
       const data = await cryptoRes.value.json();
