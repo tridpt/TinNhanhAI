@@ -775,6 +775,9 @@ function showReaderModal(title, contentHtmlParts, url, wordCount) {
         <div class="reader-header">
           <h2 class="reader-title"></h2>
           <div class="reader-actions">
+            <button class="reader-summarize chip" type="button" title="Tóm tắt bằng AI">
+              <i data-lucide="sparkles"></i><span>Tóm tắt AI</span>
+            </button>
             <a class="reader-open-link chip" target="_blank" rel="noreferrer">
               <i data-lucide="external-link"></i><span>Mở gốc</span>
             </a>
@@ -784,6 +787,7 @@ function showReaderModal(title, contentHtmlParts, url, wordCount) {
           </div>
         </div>
         <div class="reader-meta"></div>
+        <div class="reader-summary" hidden></div>
         <div class="reader-body"></div>
       </div>
     `;
@@ -800,6 +804,41 @@ function showReaderModal(title, contentHtmlParts, url, wordCount) {
 
   modal.querySelector(".reader-title").textContent = title || "";
   modal.querySelector(".reader-open-link").href = url || "#";
+
+  // Wire summarize button (re-bind each time with current article).
+  const summarizeBtn = modal.querySelector(".reader-summarize");
+  const summaryDiv = modal.querySelector(".reader-summary");
+  if (summaryDiv) summaryDiv.hidden = true;
+  if (summarizeBtn) {
+    summarizeBtn.onclick = async () => {
+      const plainText = (contentHtmlParts || [])
+        .map((p) => p.replace(/<[^>]+>/g, ""))
+        .join("\n");
+      if (!plainText.trim()) return;
+      summaryDiv.hidden = false;
+      summaryDiv.innerHTML = `<div class="reader-summary-loading"><i data-lucide="loader"></i> Đang tóm tắt...</div>`;
+      lucide.createIcons();
+      try {
+        const res = await fetch("/api/summarize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, content: plainText }),
+        });
+        const data = await res.json();
+        if (data.error) {
+          summaryDiv.innerHTML = `<p class="muted">${data.message || "Không tóm tắt được."}</p>`;
+          return;
+        }
+        summaryDiv.innerHTML = `
+          <div class="reader-summary-head"><i data-lucide="sparkles"></i> Tóm tắt AI</div>
+          <pre class="reader-summary-text">${escapeHtml(data.summary)}</pre>
+        `;
+        lucide.createIcons();
+      } catch (e) {
+        summaryDiv.innerHTML = `<p class="muted">Lỗi kết nối.</p>`;
+      }
+    };
+  }
   modal.querySelector(".reader-meta").textContent = wordCount
     ? `~${Math.ceil(wordCount / 200)} phút đọc · ${wordCount} từ`
     : "";

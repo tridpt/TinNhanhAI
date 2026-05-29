@@ -2648,3 +2648,61 @@ html[data-theme="dark"] .chart-backdrop {
     text-align: center;
   }
 }
+
+
+/* Reader AI summary */
+.reader-summary {
+  margin: 0 24px;
+  padding: 14px 16px;
+  border: 1px solid rgba(15, 118, 110, 0.3);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 118, 110, 0.05);
+}
+
+.reader-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.reader-summary-head i {
+  width: 15px;
+  height: 15px;
+}
+
+.reader-summary-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.reader-summary-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.reader-summary-loading i {
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+html[data-theme="dark"] .reader-summary {
+  background: rgba(45, 212, 191, 0.08);
+  border-color: rgba(45, 212, 191, 0.3);
+}

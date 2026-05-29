@@ -469,6 +469,49 @@ def read_article():
     return jsonify(fetch_article(url))
 
 
+@app.post("/api/summarize")
+@limit(ask_limiter)
+def summarize_article():
+    """Summarize article text with AI (Gemini/OpenAI)."""
+
+    from services.ai import ai_enabled, generate_text
+
+    payload = request.get_json(silent=True) or {}
+    title = str(payload.get("title", "")).strip()
+    content = str(payload.get("content", "")).strip()
+
+    if not content:
+        return jsonify({"error": "content is required"}), 400
+
+    if not ai_enabled():
+        return jsonify({
+            "summary": "",
+            "error": "ai_disabled",
+            "message": "Chưa bật AI. Đặt GEMINI_API_KEY để dùng tính năng này.",
+        })
+
+    # Truncate very long articles to keep prompt within limits.
+    text = content[:6000]
+    prompt = f"""
+Hãy tóm tắt bài báo sau bằng tiếng Việt, ngắn gọn 3-5 gạch đầu dòng.
+Nêu ý chính, số liệu quan trọng nếu có. Không bịa thêm.
+
+Tiêu đề: {title}
+
+Nội dung:
+{text}
+""".strip()
+
+    summary = generate_text(prompt, max_output_tokens=400)
+    if not summary:
+        return jsonify({
+            "summary": "",
+            "error": "ai_failed",
+            "message": "AI đang quá tải, thử lại sau.",
+        })
+    return jsonify({"summary": summary})
+
+
 @app.get("/favicon.ico")
 def favicon():
     return ("", 204)
