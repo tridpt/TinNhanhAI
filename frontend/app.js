@@ -872,10 +872,17 @@ function flashPriceChange(node, key, newPrice) {
 function renderMarketCards(container, cards, options = {}) {
   if (!container) return;
   if (!cards || !cards.length) {
-    container.innerHTML = `<div class="empty-state">Chưa có dữ liệu.</div>`;
+    // Only clear non-custom cards; keep user's watchlist.
+    container.querySelectorAll(".market-card:not(.custom-card)").forEach((el) => el.remove());
+    container.querySelectorAll(".empty-state").forEach((el) => el.remove());
+    if (!container.querySelector(".custom-card")) {
+      container.insertAdjacentHTML("afterbegin", `<div class="empty-state">Chưa có dữ liệu.</div>`);
+    }
     return;
   }
-  container.innerHTML = "";
+  // Remove only default cards (not custom watchlist cards).
+  container.querySelectorAll(".market-card:not(.custom-card)").forEach((el) => el.remove());
+  container.querySelectorAll(".empty-state").forEach((el) => el.remove());
   cards.forEach((card) => {
     const change = Number(card.change_percent || 0);
     const trend = change > 0 ? "up" : change < 0 ? "down" : "flat";
@@ -894,7 +901,13 @@ function renderMarketCards(container, cards, options = {}) {
       ${card.unit ? `<div class="market-unit">${card.unit}</div>` : ""}
       <div class="market-spark"></div>
     `;
-    container.appendChild(node);
+    // Insert before custom cards so they stay at the bottom.
+    const firstCustom = container.querySelector(".custom-card");
+    if (firstCustom) {
+      container.insertBefore(node, firstCustom);
+    } else {
+      container.appendChild(node);
+    }
     flashPriceChange(node, card.key, card.price);
     if (options.showSparkline && card.history && card.history.length >= 2) {
       const sparkContainer = node.querySelector(".market-spark");
