@@ -198,11 +198,12 @@ def get_stocks_payload(*, force: bool = False) -> dict[str, Any]:
     formatted: list[dict[str, Any]] = []
     for card in cards:
         record_price(card["key"], card.get("price"), label=card["label"])
-        # Use our own throttled sparkline history for consistency with other
-        # price cards. Fall back to the day-by-day series we already pulled
-        # if our store has fewer points.
+        # Prefer the source with more distinct values for a meaningful chart.
         own = get_history(card["key"])
-        history = own if len(own) >= 2 else card.get("session_history", [])
+        session = card.get("session_history", [])
+        own_unique = len({p["value"] for p in own}) if own else 0
+        session_unique = len({p["value"] for p in session}) if session else 0
+        history = session if session_unique > own_unique else own
         card_out = {**card, "history": history[-200:]}
         card_out.pop("session_history", None)
         formatted.append(card_out)
