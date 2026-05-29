@@ -159,8 +159,20 @@ function renderNews(topic) {
 
   let sourceItems = items;
   if (onlyBookmarked) {
-    // Show all bookmarked articles (from localStorage), not just those in current feed.
-    sourceItems = [...state.bookmarks.values()];
+    // Show all bookmarked articles from localStorage.
+    // Enrich with data from current feed if available (for old bookmarks that only stored URL).
+    const feedMap = new Map((items || []).map((item) => [item.url, item]));
+    sourceItems = [...state.bookmarks.values()].map((saved) => {
+      const fromFeed = feedMap.get(saved.url);
+      return {
+        ...saved,
+        title: saved.title || (fromFeed && fromFeed.title) || saved.url || "Bài đã lưu",
+        summary: saved.summary || (fromFeed && fromFeed.summary) || "",
+        source: saved.source || (fromFeed && fromFeed.source) || "",
+        thumbnail: saved.thumbnail || (fromFeed && fromFeed.thumbnail) || "",
+        published_label: saved.published_label || (fromFeed && fromFeed.published_label) || "",
+      };
+    });
   }
 
   const filtered = sourceItems.filter((item) => {
@@ -1443,8 +1455,8 @@ function toggleBookmark(item) {
   } else {
     // Store full article data so bookmarked items survive even if removed from feed.
     state.bookmarks.set(item.url, {
-      url: item.url,
-      title: item.title || "",
+      url: item.url || "",
+      title: item.title || item.url || "Bài đã lưu",
       summary: item.summary || "",
       source: item.source || "",
       thumbnail: item.thumbnail || "",
