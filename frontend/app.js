@@ -555,12 +555,17 @@ function openDetailChart(label, points, options = {}) {
   chartBody.addEventListener("mousemove", (e) => {
     const rect = svg.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
-    const ratio = mouseX / rect.width;
+    // Account for padX in the SVG viewBox: the chart area starts at padX/width
+    // of the rendered element and ends at (width-padX)/width.
+    const padRatio = padX / width;
+    const chartStartPx = rect.width * padRatio;
+    const chartEndPx = rect.width * (1 - padRatio);
+    const chartWidthPx = chartEndPx - chartStartPx;
+    const clampedX = Math.max(0, Math.min(mouseX - chartStartPx, chartWidthPx));
+    const ratio = clampedX / chartWidthPx;
     const idx = Math.round(ratio * (coords.length - 1));
     if (idx < 0 || idx >= coords.length) return;
     const c = coords[idx];
-    const svgRatioX = c.x / width;
-    const svgRatioY = c.y / height;
 
     crosshair.setAttribute("x1", c.x.toFixed(1));
     crosshair.setAttribute("x2", c.x.toFixed(1));
@@ -574,7 +579,7 @@ function openDetailChart(label, points, options = {}) {
     const dateStr = date ? date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
     tooltip.textContent = `${dateStr}  ·  ${formatTick(c.value)}`;
     tooltip.hidden = false;
-    tooltip.style.left = `${Math.min(Math.max(svgRatioX * 100, 10), 90)}%`;
+    tooltip.style.left = `${Math.min(Math.max((c.x / width) * 100, 10), 90)}%`;
   });
 
   chartBody.addEventListener("mouseleave", () => {
