@@ -991,7 +991,7 @@ function openCompareModal(type) {
 
   if (available.length < 2) {
     modal.querySelector(".compare-picker").innerHTML =
-      `<p class="muted">Cần ít nhất 2 mã có dữ liệu lịch sử. Hãy thêm mã vào danh sách theo dõi trước.</p>`;
+      `<p class="muted"><i data-lucide="info"></i> Cần ít nhất 2 mã có dữ liệu lịch sử. Hãy thêm mã vào danh sách theo dõi trước.</p>`;
   } else {
     // Default selection: first 2 if nothing chosen yet.
     if (!_compareSelection[type].length) {
@@ -1291,7 +1291,7 @@ function openStatsModal() {
 
   let bodyHtml;
   if (!stats.total) {
-    bodyHtml = `<p class="empty-state">Chưa có bài nào được đọc. Bấm vào một tin để bắt đầu thống kê.</p>`;
+    bodyHtml = `<div class="stats-empty"><i data-lucide="book-open"></i><p>Chưa có bài nào được đọc.<br>Bấm vào một tin để bắt đầu thống kê.</p></div>`;
   } else {
     const maxTopic = stats.topTopics.length ? stats.topTopics[0][1] : 1;
     const maxSource = stats.topSources.length ? stats.topSources[0][1] : 1;

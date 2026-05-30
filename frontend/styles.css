@@ -2891,7 +2891,7 @@ html[data-theme="dark"] .install-btn {
 }
 
 .pwa-toast-hint i {
-  color: #2563eb;
+  color: var(--accent-2);
 }
 
 .pwa-toast-btn {
@@ -3054,8 +3054,8 @@ body.is-offline .topbar {
   flex-shrink: 0;
 }
 
-.compare-legend-box .compare-value.positive { color: var(--positive, #16a34a); font-weight: 600; }
-.compare-legend-box .compare-value.negative { color: var(--negative, #dc2626); font-weight: 600; }
+.compare-legend-box .compare-value.positive { color: var(--success); font-weight: 600; }
+.compare-legend-box .compare-value.negative { color: var(--danger); font-weight: 600; }
 
 @media (max-width: 640px) {
   .compare-chart-svg {
@@ -3405,7 +3405,7 @@ body.is-offline .topbar {
 }
 
 .stat-bar-fill.alt {
-  background: #2563eb;
+  background: var(--accent-2);
 }
 
 .stat-bar-num {
@@ -3451,9 +3451,91 @@ body.is-offline .topbar {
   color: var(--negative, #dc2626);
 }
 
+.stats-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.stats-empty i {
+  width: 40px;
+  height: 40px;
+  opacity: 0.5;
+}
+
+.stats-empty p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.compare-picker .muted i {
+  width: 15px;
+  height: 15px;
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
 @media (max-width: 640px) {
   .stat-bar-row {
     grid-template-columns: 90px 1fr 28px;
     font-size: 0.78rem;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Dark-mode polish for new modals (compare / search / stats) + toasts
+   ═══════════════════════════════════════════════════════════════════ */
+
+html[data-theme="dark"] .search-dialog,
+html[data-theme="dark"] .chart-panel,
+html[data-theme="dark"] .compare-panel {
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  border-color: var(--line-strong);
+}
+
+html[data-theme="dark"] .pwa-toast {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  border-color: var(--line-strong);
+}
+
+html[data-theme="dark"] .search-backdrop,
+html[data-theme="dark"] .chart-backdrop {
+  background: rgba(0, 0, 0, 0.68);
+}
+
+html[data-theme="dark"] .stat-card {
+  background: rgba(45, 212, 191, 0.10);
+}
+
+html[data-theme="dark"] .compare-chip.active,
+html[data-theme="dark"] .reader-summary-tag {
+  background: rgba(45, 212, 191, 0.16);
+}
+
+/* Subtle entrance for modal dialogs so they don't pop abruptly */
+.chart-panel,
+.compare-panel {
+  animation: dialog-rise 0.22s ease-out;
+}
+
+@keyframes dialog-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .pwa-toast,
+  .search-dialog,
+  .chart-panel,
+  .compare-panel,
+  .stat-bar-fill,
+  .offline-banner {
+    animation: none !important;
+    transition: none !important;
   }
 }
