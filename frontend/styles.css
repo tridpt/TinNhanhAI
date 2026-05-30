@@ -3539,3 +3539,40 @@ html[data-theme="dark"] .reader-summary-tag {
     transition: none !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Compact news mode (titles only) + stats export action row
+   ═══════════════════════════════════════════════════════════════════ */
+
+body.news-compact .news-summary {
+  display: none;
+}
+
+body.news-compact .news-thumb {
+  display: none !important;
+}
+
+body.news-compact .news-card {
+  padding: 9px 13px;
+}
+
+body.news-compact .news-card-body {
+  margin: 0;
+}
+
+body.news-compact .news-title {
+  font-size: 0.9rem;
+}
+
+#compact-news-btn.active {
+  border-color: rgba(15, 118, 110, 0.35);
+  background: rgba(15, 118, 110, 0.08);
+  color: var(--accent);
+}
+
+.stat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}

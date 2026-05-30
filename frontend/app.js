@@ -44,6 +44,7 @@ const LS_KEYS = {
   customForex: "tnai.watchlist.forex",
   savedFilters: "tnai.savedfilters",
   readHistory: "tnai.readhistory",
+  compactNews: "tnai.compactnews",
 };
 const RECENT_QUERIES_LIMIT = 8;
 const BOOKMARK_LIMIT = 200;
@@ -1324,7 +1325,10 @@ function openStatsModal() {
       ${sourceBars ? `<h4 class="stat-section-title">Nguồn hay đọc</h4><div class="stat-bars">${sourceBars}</div>` : ""}
       <h4 class="stat-section-title">Đọc gần đây</h4>
       <ul class="stat-recent">${recent}</ul>
-      <button type="button" class="chip stat-clear-btn"><i data-lucide="trash-2"></i> Xóa lịch sử đọc</button>
+      <div class="stat-actions">
+        <button type="button" class="chip stat-export-btn"><i data-lucide="download"></i> Xuất dữ liệu (JSON)</button>
+        <button type="button" class="chip stat-clear-btn"><i data-lucide="trash-2"></i> Xóa lịch sử đọc</button>
+      </div>
     `;
   }
 
@@ -1360,6 +1364,10 @@ function openStatsModal() {
       localStorage.removeItem(LS_KEYS.readHistory);
       close();
     });
+  }
+  const exportBtn = modal.querySelector(".stat-export-btn");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", exportUserData);
   }
 
   modal.classList.add("open");
@@ -2629,6 +2637,42 @@ function exportPricesCsv() {
   downloadCsv(`tinnhanh-prices-${stamp}.csv`, rows);
 }
 
+function downloadJson(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+}
+
+// Export the user's personal data (kept entirely client-side) to a JSON file:
+// reading history, watchlists, saved filters, bookmarks, preferences.
+function exportUserData() {
+  const safe = (key) => {
+    try { return JSON.parse(localStorage.getItem(key) || "null"); }
+    catch (e) { return null; }
+  };
+  const data = {
+    exported_at: new Date().toISOString(),
+    app: "TinNhanh AI",
+    read_history: loadReadHistory(),
+    watchlists: {
+      stocks: safe(LS_KEYS.customStocks) || [],
+      crypto: safe(LS_KEYS.customCrypto) || [],
+      forex: safe(LS_KEYS.customForex) || [],
+      cities: safe(LS_KEYS.customCities) || [],
+    },
+    saved_filters: safe(LS_KEYS.savedFilters) || [],
+    bookmarks: safe(LS_KEYS.bookmarks) || [],
+    theme: localStorage.getItem(LS_KEYS.theme) || "light",
+  };
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+  downloadJson(`tinnhanh-data-${stamp}.json`, data);
+}
+
 // --- Currency converter -------------------------------------------------------
 
 function initConverter() {
@@ -3439,6 +3483,8 @@ function bindEvents() {
   if (advSearchBtn) advSearchBtn.addEventListener("click", openAdvancedSearch);
   const statsBtn = document.getElementById("stats-btn");
   if (statsBtn) statsBtn.addEventListener("click", openStatsModal);
+  const compactBtn = document.getElementById("compact-news-btn");
+  if (compactBtn) compactBtn.addEventListener("click", toggleCompactNews);
   const addForexBtn = document.getElementById("add-forex-btn");
   if (addForexBtn) addForexBtn.addEventListener("click", promptAddForex);
   const locateBtn = document.getElementById("locate-weather-btn");
@@ -3498,8 +3544,42 @@ function bindKeyboardShortcuts() {
     } else if (event.key === "t" || event.key === "T") {
       event.preventDefault();
       toggleTheme();
+    } else if (event.key === "f" || event.key === "F") {
+      event.preventDefault();
+      openAdvancedSearch();
+    } else if (event.key === "s" || event.key === "S") {
+      event.preventDefault();
+      openStatsModal();
+    } else if (event.key === "c" || event.key === "C") {
+      event.preventDefault();
+      toggleCompactNews();
     }
   });
+}
+
+// --- Compact news mode (titles only) ----------------------------------------
+
+function isCompactNews() {
+  try {
+    return localStorage.getItem(LS_KEYS.compactNews) === "1";
+  } catch (e) { return false; }
+}
+
+function applyCompactNews() {
+  document.body.classList.toggle("news-compact", isCompactNews());
+  const btn = document.getElementById("compact-news-btn");
+  if (btn) {
+    const on = isCompactNews();
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", String(on));
+  }
+}
+
+function toggleCompactNews() {
+  try {
+    localStorage.setItem(LS_KEYS.compactNews, isCompactNews() ? "0" : "1");
+  } catch (e) { /* ignore */ }
+  applyCompactNews();
 }
 
 function bindVisibilityHandlers() {
@@ -3540,6 +3620,7 @@ async function init() {
   fetchCustomForex();
   initConverter();
   loadSavedWeatherCities();
+  applyCompactNews();
   startAutoRefresh();
   registerServiceWorker();
   initInstallPrompt();
