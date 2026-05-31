@@ -1795,9 +1795,18 @@ function buildSummaryPanel(data) {
 }
 
 // Minimal, safe Markdown → HTML for AI answers: escapes first, then supports
-// **bold**, bullet lists (* or -), and paragraph/line breaks.
+// **bold**, bullet lists (* or -), and paragraph/line breaks. Handles answers
+// where the model puts every bullet on ONE line (separated by " * " / " - ").
 function renderLightMarkdown(raw) {
-  const esc = escapeHtml(String(raw || ""));
+  let esc = escapeHtml(String(raw || ""));
+
+  // Normalise inline bullets to real line breaks. The model sometimes returns
+  // "intro: * item1 * item2" all on one line. A lone bullet marker is " * "
+  // (star with spaces both sides); bold "**" never has a space between the
+  // stars, so splitting on \s+\*\s+ can't break bold runs.
+  esc = esc.replace(/\s+\*\s+/g, "\n* ");
+  esc = esc.replace(/\s+•\s+/g, "\n• ");
+
   const lines = esc.split(/\r?\n/);
   let html = "";
   let inList = false;
@@ -1807,13 +1816,14 @@ function renderLightMarkdown(raw) {
 
   for (const line of lines) {
     const trimmed = line.trim();
+    if (!trimmed) continue;
     const bullet = trimmed.match(/^[*\-•]\s+(.*)$/);
     if (bullet) {
       if (!inList) { html += "<ul class='answer-md-list'>"; inList = true; }
       html += `<li>${inline(bullet[1])}</li>`;
     } else {
       if (inList) { html += "</ul>"; inList = false; }
-      if (trimmed) html += `<p>${inline(trimmed)}</p>`;
+      html += `<p>${inline(trimmed)}</p>`;
     }
   }
   if (inList) html += "</ul>";
