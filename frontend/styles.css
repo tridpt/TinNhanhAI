@@ -3657,3 +3657,155 @@ body.news-compact .news-title {
     grid-template-columns: 1fr;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Price alerts modal
+   ═══════════════════════════════════════════════════════════════════ */
+
+.alerts-body {
+  padding: 16px 20px 22px;
+}
+
+.alerts-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.8rem;
+  margin: 0 0 14px;
+}
+
+.alerts-note i {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.alert-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.alert-item-input,
+.alert-threshold,
+.alert-direction {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg, #fff);
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.alert-item-input:focus,
+.alert-threshold:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.alert-form-row {
+  display: flex;
+  gap: 8px;
+}
+
+.alert-direction {
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.alert-threshold {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-form-row .primary-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.alert-current {
+  margin: 0;
+  font-size: 0.82rem;
+  min-height: 1em;
+}
+
+.alerts-list {
+  margin-top: 14px;
+}
+
+.alert-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.alert-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-row-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.alert-row-cond {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.alert-row.triggered .alert-row-label {
+  color: var(--muted);
+}
+
+.alert-row-tag {
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 999px;
+  background: rgba(45, 212, 191, 0.16);
+  color: var(--accent);
+}
+
+.alert-row-del {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.alert-row-del:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.alert-row-del i {
+  width: 15px;
+  height: 15px;
+}
+
+@media (max-width: 640px) {
+  .alert-form-row {
+    flex-wrap: wrap;
+  }
+  .alert-direction {
+    flex: 1;
+  }
+}

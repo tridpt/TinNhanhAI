@@ -2808,6 +2808,141 @@ function openAboutModal() {
   lucide.createIcons();
 }
 
+// --- Price alerts ------------------------------------------------------------
+
+let _alertItems = [];
+
+async function openAlertsModal() {
+  let modal = document.getElementById("alerts-modal");
+  if (modal) modal.remove();
+  modal = document.createElement("div");
+  modal.id = "alerts-modal";
+  modal.className = "search-modal";
+  modal.innerHTML = `
+    <div class="search-backdrop"></div>
+    <div class="search-dialog">
+      <div class="search-dialog-head">
+        <h3><i data-lucide="bell"></i> Cảnh báo giá</h3>
+        <button type="button" class="search-close icon-btn" aria-label="Đóng"><i data-lucide="x"></i></button>
+      </div>
+      <div class="search-results alerts-body">
+        <p class="muted alerts-note"><i data-lucide="info"></i> Cảnh báo gửi qua Telegram khi giá chạm ngưỡng. Cần cấu hình TELEGRAM_BOT_TOKEN &amp; TELEGRAM_CHAT_ID.</p>
+        <form class="alert-form">
+          <input type="text" class="alert-item-input" list="alert-item-list" placeholder="Chọn mã: Bitcoin, Vàng SJC..." autocomplete="off">
+          <datalist id="alert-item-list"></datalist>
+          <div class="alert-form-row">
+            <select class="alert-direction">
+              <option value="above">≥ (tăng tới)</option>
+              <option value="below">≤ (giảm tới)</option>
+            </select>
+            <input type="number" step="any" class="alert-threshold" placeholder="Ngưỡng giá">
+            <button type="submit" class="primary-btn"><i data-lucide="plus"></i> Thêm</button>
+          </div>
+          <p class="alert-current muted"></p>
+        </form>
+        <div class="alerts-list"></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const close = () => { modal.classList.remove("open"); setTimeout(() => modal.remove(), 200); };
+  modal.querySelector(".search-backdrop").addEventListener("click", close);
+  modal.querySelector(".search-close").addEventListener("click", close);
+  document.addEventListener("keydown", function esc(e) {
+    if (e.key === "Escape" && document.getElementById("alerts-modal")) { close(); document.removeEventListener("keydown", esc); }
+  });
+
+  const form = modal.querySelector(".alert-form");
+  const itemInput = modal.querySelector(".alert-item-input");
+  const dirSel = modal.querySelector(".alert-direction");
+  const threshInput = modal.querySelector(".alert-threshold");
+  const currentLabel = modal.querySelector(".alert-current");
+
+  // Load alertable items (with current prices) for the datalist.
+  try {
+    const res = await fetch("/api/alerts/items");
+    const data = await res.json();
+    _alertItems = data.items || [];
+    modal.querySelector("#alert-item-list").innerHTML = _alertItems
+      .map((it) => `<option value="${escapeHtml(it.label)}">${escapeHtml(it.unit || "")}</option>`)
+      .join("");
+  } catch (e) { /* ignore */ }
+
+  // Show current price when an item is picked.
+  itemInput.addEventListener("input", () => {
+    const it = _alertItems.find((x) => x.label === itemInput.value.trim());
+    currentLabel.textContent = it
+      ? `Giá hiện tại: ${Number(it.price).toLocaleString("vi-VN")} ${it.unit || ""}`
+      : "";
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const it = _alertItems.find((x) => x.label === itemInput.value.trim());
+    const threshold = parseFloat(threshInput.value);
+    if (!it || !Number.isFinite(threshold)) {
+      itemInput.placeholder = "Chọn mã hợp lệ + nhập ngưỡng!";
+      return;
+    }
+    try {
+      const res = await fetch("/api/alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_key: it.key, label: it.label, unit: it.unit,
+          direction: dirSel.value, threshold,
+        }),
+      });
+      if (res.ok) {
+        itemInput.value = ""; threshInput.value = ""; currentLabel.textContent = "";
+        renderAlertsList(modal);
+      }
+    } catch (e) { /* ignore */ }
+  });
+
+  renderAlertsList(modal);
+  modal.classList.add("open");
+  lucide.createIcons();
+}
+
+async function renderAlertsList(modal) {
+  const box = modal.querySelector(".alerts-list");
+  box.innerHTML = `<div class="answer-loading"><i data-lucide="loader" class="spin"></i> Đang tải...</div>`;
+  lucide.createIcons();
+  let alerts = [];
+  try {
+    const res = await fetch("/api/alerts");
+    alerts = (await res.json()).alerts || [];
+  } catch (e) { /* ignore */ }
+
+  if (!alerts.length) {
+    box.innerHTML = `<p class="empty-state">Chưa có cảnh báo nào. Thêm một cái ở trên.</p>`;
+    return;
+  }
+
+  box.innerHTML = `<h4 class="stat-section-title">Đang theo dõi</h4>` + alerts.map((a) => {
+    const cond = a.direction === "above" ? "≥" : "≤";
+    const triggered = !a.active;
+    return `
+      <div class="alert-row ${triggered ? "triggered" : ""}">
+        <div class="alert-row-main">
+          <span class="alert-row-label">${escapeHtml(a.label || a.item_key)}</span>
+          <span class="alert-row-cond">${cond} ${Number(a.threshold).toLocaleString("vi-VN")} ${escapeHtml(a.unit || "")}</span>
+        </div>
+        ${triggered ? `<span class="alert-row-tag">đã kích hoạt</span>` : ""}
+        <button type="button" class="alert-row-del" data-id="${a.id}" aria-label="Xóa"><i data-lucide="trash-2"></i></button>
+      </div>`;
+  }).join("");
+
+  box.querySelectorAll(".alert-row-del").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      await fetch(`/api/alerts/${btn.dataset.id}`, { method: "DELETE" });
+      renderAlertsList(modal);
+    });
+  });
+  lucide.createIcons();
+}
+
 // --- Currency converter -------------------------------------------------------
 
 function initConverter() {
@@ -3622,6 +3757,8 @@ function bindEvents() {
   if (compactBtn) compactBtn.addEventListener("click", toggleCompactNews);
   const aboutBtn = document.getElementById("about-btn");
   if (aboutBtn) aboutBtn.addEventListener("click", openAboutModal);
+  const alertsBtn = document.getElementById("alerts-btn");
+  if (alertsBtn) alertsBtn.addEventListener("click", openAlertsModal);
   const addForexBtn = document.getElementById("add-forex-btn");
   if (addForexBtn) addForexBtn.addEventListener("click", promptAddForex);
   const locateBtn = document.getElementById("locate-weather-btn");

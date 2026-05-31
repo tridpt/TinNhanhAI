@@ -53,6 +53,8 @@ biểu đồ, và trợ lý AI — chạy bằng Flask, đóng gói thành PWA c
 
 ### 🔔 Telegram (tùy chọn)
 - Watcher chạy nền gửi alert khi có tin chứa từ khóa bạn theo dõi.
+- **Cảnh báo giá**: đặt ngưỡng cho vàng/coin/cổ phiếu/ngoại tệ (≥ hoặc ≤), nhận
+  thông báo Telegram khi giá chạm ngưỡng (cảnh báo một lần, tự tắt sau khi kích hoạt).
 
 ---
 
@@ -155,6 +157,7 @@ thì app vẫn chạy, chỉ tắt phần tóm tắt/hỏi AI.
 | `TELEGRAM_CHAT_ID` | _empty_ | Chat/channel nhận tin. |
 | `TELEGRAM_KEYWORDS` | _empty_ | Keyword cách nhau bằng dấu phẩy. |
 | `TELEGRAM_POLL_SECONDS` | `600` | Khoảng quét RSS. |
+| `PRICE_ALERT_POLL_SECONDS` | `300` | Khoảng so giá cho cảnh báo giá. |
 
 ---
 

@@ -123,3 +123,53 @@ def weather_location():
         status = result.pop("status", 502)
         return jsonify(result), status
     return jsonify(result)
+
+
+# --- Price alerts ------------------------------------------------------------
+
+
+@bp.get("/api/alerts")
+def alerts_list():
+    from services.alerts import list_alerts
+
+    return jsonify({"alerts": list_alerts()})
+
+
+@bp.post("/api/alerts")
+def alerts_create():
+    from services.alerts import add_alert
+
+    payload = request.get_json(silent=True) or {}
+    alert = add_alert(
+        str(payload.get("item_key", "")),
+        str(payload.get("direction", "")),
+        payload.get("threshold"),
+        label=str(payload.get("label", "")),
+        unit=str(payload.get("unit", "")),
+    )
+    if alert is None:
+        return jsonify({"error": "invalid_alert"}), 400
+    return jsonify(alert), 201
+
+
+@bp.delete("/api/alerts/<int:alert_id>")
+def alerts_delete(alert_id: int):
+    from services.alerts import delete_alert
+
+    if delete_alert(alert_id):
+        return jsonify({"status": "deleted", "id": alert_id})
+    return jsonify({"error": "not_found"}), 404
+
+
+@bp.get("/api/alerts/items")
+def alerts_items():
+    """List items that can have an alert set, with their current price."""
+
+    from services.price_alert import collect_current_prices
+
+    prices = collect_current_prices()
+    items = [
+        {"key": key, "label": info["label"], "unit": info["unit"], "price": info["price"]}
+        for key, info in sorted(prices.items(), key=lambda kv: kv[1]["label"])
+    ]
+    return jsonify({"items": items})

@@ -90,6 +90,10 @@ if __name__ == "__main__":
     target_port = _pick_port(config.PORT)
     if start_telegram_watcher():
         print("[telegram] alert watcher enabled")
+    from services.price_alert import start_in_background as start_price_watcher
+
+    if start_price_watcher():
+        print("[price-alert] watcher enabled")
     # Pre-warm caches in background so the first user request is instant.
     _start_prewarm()
     use_prod = os.getenv("TINNHANH_PROD", "").lower() in {"1", "true", "yes"} or not config.DEBUG
