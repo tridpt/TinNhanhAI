@@ -1905,7 +1905,7 @@ function updateMetrics(dashboard) {
   el.metricArticles.textContent = metrics.article_count ?? 0;
   el.metricSources.textContent = metrics.source_count ?? 0;
   el.metricUpdated.textContent = formatTime(dashboard.generated_at);
-  el.briefText.textContent = dashboard.brief || "Chưa có bản tóm tắt.";
+  el.briefText.innerHTML = renderLightMarkdown(dashboard.brief || "Chưa có bản tóm tắt.");
 }
 
 function renderForex(cards) {
@@ -2047,7 +2047,7 @@ async function loadDashboard(force = false, options = {}) {
         el.metricSources.textContent = data.source_count;
       }
       if (data.summary) {
-        el.briefText.textContent = data.summary;
+        el.briefText.innerHTML = renderLightMarkdown(data.summary);
       }
     }},
     { url: `/api/prices${forceParam}`, render: (data) => {

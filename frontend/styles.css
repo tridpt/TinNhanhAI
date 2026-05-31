@@ -338,6 +338,27 @@ button {
   line-height: 1.5;
 }
 
+.brief-text p {
+  margin: 0 0 8px;
+}
+
+.brief-text p:last-child,
+.brief-text ul:last-child {
+  margin-bottom: 0;
+}
+
+.brief-text ul.answer-md-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.brief-text strong {
+  font-weight: 600;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: 1fr;
