@@ -4003,8 +4003,8 @@ function initInstallPrompt() {
   if (installBtn) {
     installBtn.addEventListener("click", async () => {
       if (!_deferredInstallPrompt) {
-        // iOS Safari has no prompt API — guide the user instead.
-        showIosInstallHint();
+        // No native prompt available — show platform-appropriate guidance.
+        showInstallHint();
         return;
       }
       _deferredInstallPrompt.prompt();
@@ -4026,21 +4026,38 @@ function initInstallPrompt() {
   });
 }
 
-function showIosInstallHint() {
-  let hint = document.getElementById("ios-install-hint");
-  if (hint) { hint.remove(); return; }
+function showInstallHint() {
+  const ua = window.navigator.userAgent;
+  const isIos = /iphone|ipad|ipod/i.test(ua);
+  const isAndroid = /android/i.test(ua);
+
+  let icon = "monitor-down";
+  let message;
+  if (isIos) {
+    icon = "share";
+    message = 'Trên iPhone/iPad: bấm nút Chia sẻ ở thanh Safari rồi chọn "Thêm vào MH chính".';
+  } else if (isAndroid) {
+    icon = "smartphone";
+    message = 'Trên Android: mở menu ⋮ của trình duyệt rồi chọn "Cài đặt ứng dụng" / "Thêm vào màn hình chính".';
+  } else {
+    // Desktop Chrome/Edge: install icon sits at the right of the address bar.
+    message = 'Trên máy tính: bấm biểu tượng cài đặt (⊕ hoặc màn hình có mũi tên) ở cuối thanh địa chỉ. Nếu không thấy, có thể app đã được cài rồi.';
+  }
+
+  let hint = document.getElementById("install-hint");
+  if (hint) hint.remove();
   hint = document.createElement("div");
-  hint.id = "ios-install-hint";
+  hint.id = "install-hint";
   hint.className = "pwa-toast pwa-toast-hint";
   hint.innerHTML = `
-    <i data-lucide="share"></i>
-    <span>Bấm nút Chia sẻ rồi chọn "Thêm vào MH chính" để cài app.</span>
+    <i data-lucide="${icon}"></i>
+    <span>${message}</span>
     <button type="button" class="pwa-toast-btn">OK</button>
   `;
   document.body.appendChild(hint);
   lucide.createIcons();
   hint.querySelector(".pwa-toast-btn").addEventListener("click", () => hint.remove());
-  setTimeout(() => hint.remove(), 10000);
+  setTimeout(() => hint.remove(), 12000);
 }
 
 // --- Offline / online indicator ----------------------------------------------
