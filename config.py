@@ -40,7 +40,7 @@ PRICE_REFRESH_SECONDS = int(os.getenv("PRICE_REFRESH_SECONDS", "300"))
 DASHBOARD_REFRESH_SECONDS = int(os.getenv("DASHBOARD_REFRESH_SECONDS", "600"))
 SEARCH_REFRESH_SECONDS = int(os.getenv("SEARCH_REFRESH_SECONDS", "300"))
 
-NEWS_TOPIC_ORDER = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao", "giai_tri", "suc_khoe"]
+NEWS_TOPIC_ORDER = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao", "giai_tri", "suc_khoe", "giao_duc", "xe"]
 
 NEWS_TOPIC_META = {
     "all": {
@@ -74,6 +74,14 @@ NEWS_TOPIC_META = {
     "suc_khoe": {
         "label": "Sức khỏe",
         "icon": "heart-pulse",
+    },
+    "giao_duc": {
+        "label": "Giáo dục",
+        "icon": "graduation-cap",
+    },
+    "xe": {
+        "label": "Xe",
+        "icon": "car",
     },
 }
 
@@ -146,6 +154,21 @@ NEWS_TOPIC_SOURCES = {
         {"name": "Zing News", "url": "https://zingnews.vn/rss/suc-khoe.rss"},
         {"name": "Người Lao Động", "url": "https://nld.com.vn/rss/suc-khoe.rss"},
     ],
+    "giao_duc": [
+        {"name": "VnExpress", "url": "https://vnexpress.net/rss/giao-duc.rss"},
+        {"name": "Thanh Niên", "url": "https://thanhnien.vn/rss/giao-duc.rss"},
+        {"name": "Tuổi Trẻ", "url": "https://tuoitre.vn/rss/giao-duc.rss"},
+        {"name": "Dân Trí", "url": "https://dantri.com.vn/rss/giao-duc-huong-nghiep.rss"},
+        {"name": "Tiền Phong", "url": "https://tienphong.vn/rss/giao-duc-71.rss"},
+        {"name": "Người Lao Động", "url": "https://nld.com.vn/rss/giao-duc-khoa-hoc.rss"},
+    ],
+    "xe": [
+        {"name": "VnExpress", "url": "https://vnexpress.net/rss/oto-xe-may.rss"},
+        {"name": "Thanh Niên", "url": "https://thanhnien.vn/rss/xe.rss"},
+        {"name": "Tuổi Trẻ", "url": "https://tuoitre.vn/rss/xe.rss"},
+        {"name": "Dân Trí", "url": "https://dantri.com.vn/rss/o-to-xe-may.rss"},
+        {"name": "Tiền Phong", "url": "https://tienphong.vn/rss/xe-217.rss"},
+    ],
 }
 
 NEWS_TOPIC_ALIASES = {
@@ -156,6 +179,8 @@ NEWS_TOPIC_ALIASES = {
     "the_thao": ["thể thao", "bóng đá", "sports", "football", "olympic"],
     "giai_tri": ["giải trí", "phim", "nhạc", "showbiz", "ca sĩ", "diễn viên", "gameshow"],
     "suc_khoe": ["sức khỏe", "y tế", "bệnh", "thuốc", "dinh dưỡng", "tập luyện", "health"],
+    "giao_duc": ["giáo dục", "học sinh", "sinh viên", "thi cử", "tuyển sinh", "đại học", "trường học"],
+    "xe": ["xe", "ô tô", "oto", "xe máy", "ôtô", "mô tô", "car", "moto"],
 }
 
 PRICE_SPECS = [

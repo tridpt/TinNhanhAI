@@ -20,7 +20,7 @@ const state = {
 
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
-const topicOrder = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao", "giai_tri", "suc_khoe"];
+const topicOrder = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao", "giai_tri", "suc_khoe", "giao_duc", "xe"];
 const topicMeta = {
   all: { label: "Tổng hợp", icon: "layout-grid" },
   thoi_su: { label: "Thời sự", icon: "newspaper" },
@@ -30,6 +30,8 @@ const topicMeta = {
   the_thao: { label: "Thể thao", icon: "trophy" },
   giai_tri: { label: "Giải trí", icon: "clapperboard" },
   suc_khoe: { label: "Sức khỏe", icon: "heart-pulse" },
+  giao_duc: { label: "Giáo dục", icon: "graduation-cap" },
+  xe: { label: "Xe", icon: "car" },
 };
 
 // localStorage keys, kept short and namespaced so we can recognize them in
@@ -1292,7 +1294,8 @@ function openStatsModal() {
 
   let bodyHtml;
   if (!stats.total) {
-    bodyHtml = `<div class="stats-empty"><i data-lucide="book-open"></i><p>Chưa có bài nào được đọc.<br>Bấm vào một tin để bắt đầu thống kê.</p></div>`;
+    bodyHtml = `<div class="stats-empty"><i data-lucide="book-open"></i><p>Chưa có bài nào được đọc.<br>Bấm vào một tin để bắt đầu thống kê.</p>
+      <button type="button" class="chip stat-import-btn"><i data-lucide="upload"></i> Nhập dữ liệu đã lưu</button></div>`;
   } else {
     const maxTopic = stats.topTopics.length ? stats.topTopics[0][1] : 1;
     const maxSource = stats.topSources.length ? stats.topSources[0][1] : 1;
@@ -1327,6 +1330,7 @@ function openStatsModal() {
       <ul class="stat-recent">${recent}</ul>
       <div class="stat-actions">
         <button type="button" class="chip stat-export-btn"><i data-lucide="download"></i> Xuất dữ liệu (JSON)</button>
+        <button type="button" class="chip stat-import-btn"><i data-lucide="upload"></i> Nhập dữ liệu</button>
         <button type="button" class="chip stat-clear-btn"><i data-lucide="trash-2"></i> Xóa lịch sử đọc</button>
       </div>
     `;
@@ -1369,6 +1373,9 @@ function openStatsModal() {
   if (exportBtn) {
     exportBtn.addEventListener("click", exportUserData);
   }
+  modal.querySelectorAll(".stat-import-btn").forEach((btn) => {
+    btn.addEventListener("click", () => importUserData(() => { close(); openStatsModal(); }));
+  });
 
   modal.classList.add("open");
   lucide.createIcons();
@@ -2673,6 +2680,134 @@ function exportUserData() {
   downloadJson(`tinnhanh-data-${stamp}.json`, data);
 }
 
+// Import a previously exported JSON file, merging it back into localStorage.
+function importUserData(onDone) {
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = "application/json,.json";
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(String(reader.result));
+        applyImportedData(data);
+        showToast(`Đã nhập dữ liệu từ ${file.name}`, "check");
+        if (typeof onDone === "function") onDone();
+      } catch (e) {
+        showToast("File không hợp lệ hoặc hỏng.", "alert-circle");
+      }
+    };
+    reader.readAsText(file);
+  });
+  fileInput.click();
+}
+
+function applyImportedData(data) {
+  if (!data || typeof data !== "object") throw new Error("bad data");
+  const setJson = (key, value) => {
+    if (value !== undefined && value !== null) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+  };
+  if (Array.isArray(data.read_history)) setJson(LS_KEYS.readHistory, data.read_history);
+  if (data.watchlists) {
+    setJson(LS_KEYS.customStocks, data.watchlists.stocks);
+    setJson(LS_KEYS.customCrypto, data.watchlists.crypto);
+    setJson(LS_KEYS.customForex, data.watchlists.forex);
+    setJson(LS_KEYS.customCities, data.watchlists.cities);
+  }
+  if (Array.isArray(data.saved_filters)) setJson(LS_KEYS.savedFilters, data.saved_filters);
+  if (Array.isArray(data.bookmarks)) setJson(LS_KEYS.bookmarks, data.bookmarks);
+  if (typeof data.theme === "string") {
+    localStorage.setItem(LS_KEYS.theme, data.theme);
+    applyTheme(data.theme);
+  }
+  // Refresh the views that read from localStorage.
+  state.bookmarks = loadBookmarks();
+  refreshBookmarksButton();
+  if (state.activeTopicData) renderNews(state.activeTopicData);
+  fetchCustomStocks();
+  fetchCustomCrypto();
+  fetchCustomForex();
+  loadSavedWeatherCities();
+}
+
+// Lightweight floating toast (reuses .pwa-toast styling).
+function showToast(message, icon = "info") {
+  const toast = document.createElement("div");
+  toast.className = "pwa-toast";
+  toast.innerHTML = `<i data-lucide="${icon}"></i><span>${escapeHtml(message)}</span>`;
+  document.body.appendChild(toast);
+  lucide.createIcons();
+  setTimeout(() => toast.remove(), 4000);
+}
+
+// --- About / shortcuts modal -------------------------------------------------
+
+function openAboutModal() {
+  let modal = document.getElementById("about-modal");
+  if (modal) modal.remove();
+  modal = document.createElement("div");
+  modal.id = "about-modal";
+  modal.className = "search-modal";
+
+  const shortcuts = [
+    ["/", "Lọc tin nhanh theo từ khóa"],
+    ["f", "Tìm kiếm nâng cao (toàn bộ tin)"],
+    ["s", "Mở thống kê đọc"],
+    ["c", "Bật/tắt chế độ tin gọn"],
+    ["r", "Làm mới dữ liệu"],
+    ["t", "Đổi giao diện sáng/tối"],
+    ["?", "Tới ô hỏi AI"],
+    ["Esc", "Xoá bộ lọc / đóng cửa sổ"],
+  ];
+  const rows = shortcuts.map(([k, d]) =>
+    `<div class="about-kbd-row"><kbd>${k}</kbd><span>${d}</span></div>`).join("");
+
+  modal.innerHTML = `
+    <div class="search-backdrop"></div>
+    <div class="search-dialog">
+      <div class="search-dialog-head">
+        <h3><i data-lucide="info"></i> Giới thiệu &amp; phím tắt</h3>
+        <button type="button" class="search-close icon-btn" aria-label="Đóng"><i data-lucide="x"></i></button>
+      </div>
+      <div class="search-results about-body">
+        <p class="about-intro">
+          <strong>TinNhanh AI</strong> — tổng hợp tin nóng, bảng giá thị trường thời gian thực,
+          biểu đồ, thời tiết và trợ lý AI. Mọi dữ liệu cá nhân (tin đã lưu, danh sách theo dõi,
+          lịch sử đọc) được lưu ngay trên máy bạn.
+        </p>
+        <h4 class="stat-section-title">Tính năng chính</h4>
+        <ul class="about-list">
+          <li><i data-lucide="newspaper"></i> 8 chủ đề, 9+ đầu báo, đọc inline + tóm tắt AI</li>
+          <li><i data-lucide="search"></i> Tìm kiếm toàn bộ tin, lưu bộ lọc yêu thích</li>
+          <li><i data-lucide="line-chart"></i> Giá vàng/xăng/dầu, crypto, chứng khoán, ngoại tệ + biểu đồ</li>
+          <li><i data-lucide="git-compare"></i> So sánh nhiều mã theo % thay đổi</li>
+          <li><i data-lucide="cloud-sun"></i> Thời tiết 5 ngày, định vị GPS</li>
+          <li><i data-lucide="smartphone"></i> Cài như app (PWA), hoạt động offline</li>
+        </ul>
+        <h4 class="stat-section-title">Phím tắt</h4>
+        <div class="about-kbd-grid">${rows}</div>
+        <p class="about-foot muted">
+          Phiên bản web · Mã nguồn:
+          <a href="https://github.com/tridpt/TinNhanhAI" target="_blank" rel="noreferrer">GitHub</a>
+        </p>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const close = () => { modal.classList.remove("open"); setTimeout(() => modal.remove(), 200); };
+  modal.querySelector(".search-backdrop").addEventListener("click", close);
+  modal.querySelector(".search-close").addEventListener("click", close);
+  document.addEventListener("keydown", function esc(e) {
+    if (e.key === "Escape" && document.getElementById("about-modal")) { close(); document.removeEventListener("keydown", esc); }
+  });
+  modal.classList.add("open");
+  lucide.createIcons();
+}
+
 // --- Currency converter -------------------------------------------------------
 
 function initConverter() {
@@ -3485,6 +3620,8 @@ function bindEvents() {
   if (statsBtn) statsBtn.addEventListener("click", openStatsModal);
   const compactBtn = document.getElementById("compact-news-btn");
   if (compactBtn) compactBtn.addEventListener("click", toggleCompactNews);
+  const aboutBtn = document.getElementById("about-btn");
+  if (aboutBtn) aboutBtn.addEventListener("click", openAboutModal);
   const addForexBtn = document.getElementById("add-forex-btn");
   if (addForexBtn) addForexBtn.addEventListener("click", promptAddForex);
   const locateBtn = document.getElementById("locate-weather-btn");

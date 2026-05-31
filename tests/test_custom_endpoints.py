@@ -142,3 +142,39 @@ def test_weather_location_returns_forecast(flask_client, monkeypatch):
     assert len(payload["forecast"]) == 2
     # First day should have 2 hourly entries.
     assert len(payload["forecast"][0]["hours"]) == 2
+
+
+# --- Forex convert route ---------------------------------------------------------------
+
+
+def test_forex_convert_route_success(flask_client, monkeypatch):
+    from services import vn_prices
+
+    monkeypatch.setattr(
+        vn_prices.requests,
+        "get",
+        lambda *a, **kw: _mock_response({"rates": {"VND": 25000.0}}),
+    )
+    response = flask_client.get("/api/forex/convert?from=USD&to=VND&amount=3")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["rate"] == 25000.0
+    assert payload["result"] == 75000.0
+
+
+def test_forex_convert_route_bad_target(flask_client, monkeypatch):
+    from services import vn_prices
+
+    monkeypatch.setattr(
+        vn_prices.requests,
+        "get",
+        lambda *a, **kw: _mock_response({"rates": {"VND": 25000.0}}),
+    )
+    response = flask_client.get("/api/forex/convert?from=USD&to=ZZZ&amount=1")
+    assert response.status_code == 400
+
+
+def test_forex_custom_route_empty_codes(flask_client):
+    response = flask_client.get("/api/forex/custom?codes=")
+    assert response.status_code == 200
+    assert response.get_json()["cards"] == []

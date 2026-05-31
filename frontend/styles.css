@@ -3576,3 +3576,84 @@ body.news-compact .news-title {
   gap: 8px;
   margin-top: 4px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   About / shortcuts modal
+   ═══════════════════════════════════════════════════════════════════ */
+
+.about-body {
+  padding: 16px 20px 22px;
+}
+
+.about-intro {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.about-list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.about-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.about-list i {
+  width: 17px;
+  height: 17px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.about-kbd-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 18px;
+}
+
+.about-kbd-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.about-kbd-row kbd {
+  min-width: 34px;
+  text-align: center;
+  padding: 3px 8px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.about-foot {
+  margin: 16px 0 0;
+  font-size: 0.82rem;
+}
+
+.about-foot a {
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .about-kbd-grid {
+    grid-template-columns: 1fr;
+  }
+}
