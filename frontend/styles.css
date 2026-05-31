@@ -788,10 +788,35 @@ button {
 
 .answer-summary {
   margin: 0;
-  white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.6;
+  line-height: 1.65;
   font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.answer-summary p {
+  margin: 0 0 10px;
+}
+
+.answer-summary p:last-child {
+  margin-bottom: 0;
+}
+
+.answer-summary strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.answer-md-list {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.answer-md-list li {
+  line-height: 1.6;
 }
 
 .answer-raw {

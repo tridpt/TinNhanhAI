@@ -72,14 +72,23 @@ def _build_ai_answer(question: str, context: dict[str, Any], fallback: str) -> s
     prompt = f"""
 Người dùng hỏi: {question}
 
-Dữ liệu tham chiếu:
-{compact_json(context, limit=5000)}
+Dữ liệu tham chiếu (tin tức/giá/kết quả tìm kiếm):
+{compact_json(context, limit=8000)}
 
-Hãy viết câu trả lời ngắn gọn bằng tiếng Việt.
-Nếu có giá, ghi rõ đơn vị và nguồn tham khảo.
-Nếu dữ liệu chưa đủ, nói rõ không đủ nguồn.
+Hãy viết câu trả lời CHI TIẾT bằng tiếng Việt, dựa hoàn toàn vào dữ liệu tham chiếu.
+Yêu cầu:
+- Mở đầu bằng 1-2 câu tổng quan nêu bức tranh chung.
+- Sau đó liệt kê các ý chính dưới dạng gạch đầu dòng. Với mỗi ý:
+  + In đậm cụm từ khóa/chủ đề của ý (dùng **...**).
+  + Giải thích 2-3 câu: nêu bối cảnh, số liệu cụ thể (giá, %, thời gian, tên riêng)
+    nếu có trong dữ liệu, và ý nghĩa/tác động.
+- Nếu là tin tức, cố gắng bao quát NHIỀU chủ đề khác nhau có trong dữ liệu (6-10 ý),
+  không bỏ sót tin quan trọng.
+- Nếu có giá, ghi rõ con số, đơn vị, mức biến động và nguồn.
+- Kết thúc bằng 1 câu nhận định ngắn nếu phù hợp.
+- Tuyệt đối không bịa thông tin ngoài dữ liệu. Nếu dữ liệu chưa đủ, nói rõ.
 """.strip()
-    text = generate_text(prompt, max_output_tokens=320)
+    text = generate_text(prompt, max_output_tokens=1400, temperature=0.3)
     return text or fallback
 
 

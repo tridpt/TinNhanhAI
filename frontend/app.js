@@ -1787,11 +1787,37 @@ function activateTab(wrapper, id) {
 
 function buildSummaryPanel(data) {
   const panel = document.createElement("div");
-  const text = document.createElement("pre");
-  text.className = "answer-summary";
-  text.textContent = data.answer || "Chưa có câu trả lời.";
-  panel.appendChild(text);
+  const body = document.createElement("div");
+  body.className = "answer-summary";
+  body.innerHTML = renderLightMarkdown(data.answer || "Chưa có câu trả lời.");
+  panel.appendChild(body);
   return panel;
+}
+
+// Minimal, safe Markdown → HTML for AI answers: escapes first, then supports
+// **bold**, bullet lists (* or -), and paragraph/line breaks.
+function renderLightMarkdown(raw) {
+  const esc = escapeHtml(String(raw || ""));
+  const lines = esc.split(/\r?\n/);
+  let html = "";
+  let inList = false;
+  const inline = (s) =>
+    s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+     .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const bullet = trimmed.match(/^[*\-•]\s+(.*)$/);
+    if (bullet) {
+      if (!inList) { html += "<ul class='answer-md-list'>"; inList = true; }
+      html += `<li>${inline(bullet[1])}</li>`;
+    } else {
+      if (inList) { html += "</ul>"; inList = false; }
+      if (trimmed) html += `<p>${inline(trimmed)}</p>`;
+    }
+  }
+  if (inList) html += "</ul>";
+  return html || "<p>Chưa có câu trả lời.</p>";
 }
 
 function buildSourcesPanel(sources) {
