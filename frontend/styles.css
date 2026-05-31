@@ -3809,3 +3809,13 @@ body.news-compact .news-title {
     flex: 1;
   }
 }
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}

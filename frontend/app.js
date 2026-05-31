@@ -2909,11 +2909,24 @@ async function renderAlertsList(modal) {
   const box = modal.querySelector(".alerts-list");
   box.innerHTML = `<div class="answer-loading"><i data-lucide="loader" class="spin"></i> Đang tải...</div>`;
   lucide.createIcons();
-  let alerts = [];
+
+  let alerts = null;
   try {
     const res = await fetch("/api/alerts");
-    alerts = (await res.json()).alerts || [];
-  } catch (e) { /* ignore */ }
+    if (res.ok) {
+      const data = await res.json();
+      alerts = data.alerts || [];
+    }
+  } catch (e) { /* network error — alerts stays null */ }
+
+  // Fetch failed: don't wipe the list to an empty state. Show a gentle retry.
+  if (alerts === null) {
+    box.innerHTML = `<p class="empty-state">Không tải được danh sách. <button type="button" class="link-btn alerts-retry">Thử lại</button></p>`;
+    const retry = box.querySelector(".alerts-retry");
+    if (retry) retry.addEventListener("click", () => renderAlertsList(modal));
+    lucide.createIcons();
+    return;
+  }
 
   if (!alerts.length) {
     box.innerHTML = `<p class="empty-state">Chưa có cảnh báo nào. Thêm một cái ở trên.</p>`;
