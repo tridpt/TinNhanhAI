@@ -10,7 +10,7 @@
  * - Anything else (e.g. fonts, lucide CDN) falls through to the network.
  */
 
-const SW_VERSION = "tinnhanh-v27";
+const SW_VERSION = "tinnhanh-v28";
 const SHELL_CACHE = `shell-${SW_VERSION}`;
 const API_CACHE = `api-${SW_VERSION}`;
 

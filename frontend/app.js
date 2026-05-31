@@ -2868,13 +2868,29 @@ async function openAlertsModal() {
       .join("");
   } catch (e) { /* ignore */ }
 
-  // Show current price when an item is picked.
-  itemInput.addEventListener("input", () => {
+  // Show current price + directional hint when item/direction/threshold change.
+  const updateHint = () => {
     const it = _alertItems.find((x) => x.label === itemInput.value.trim());
-    currentLabel.textContent = it
-      ? `Giá hiện tại: ${Number(it.price).toLocaleString("vi-VN")} ${it.unit || ""}`
-      : "";
-  });
+    if (!it) { currentLabel.textContent = ""; currentLabel.classList.remove("alert-warn"); return; }
+    const price = Number(it.price);
+    const threshold = parseFloat(threshInput.value);
+    let text = `Giá hiện tại: ${price.toLocaleString("vi-VN")} ${it.unit || ""}`;
+    let warn = false;
+    if (Number.isFinite(threshold)) {
+      if (dirSel.value === "above" && threshold <= price) {
+        text += ` · ⚠ "Tăng tới" cần ngưỡng LỚN HƠN ${price.toLocaleString("vi-VN")}`;
+        warn = true;
+      } else if (dirSel.value === "below" && threshold >= price) {
+        text += ` · ⚠ "Giảm tới" cần ngưỡng NHỎ HƠN ${price.toLocaleString("vi-VN")}`;
+        warn = true;
+      }
+    }
+    currentLabel.textContent = text;
+    currentLabel.classList.toggle("alert-warn", warn);
+  };
+  itemInput.addEventListener("input", updateHint);
+  dirSel.addEventListener("change", updateHint);
+  threshInput.addEventListener("input", updateHint);
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -2883,6 +2899,20 @@ async function openAlertsModal() {
     if (!it || !Number.isFinite(threshold)) {
       itemInput.placeholder = "Chọn mã hợp lệ + nhập ngưỡng!";
       return;
+    }
+    // Validate threshold makes sense for the chosen direction.
+    const price = Number(it.price);
+    if (Number.isFinite(price)) {
+      if (dirSel.value === "above" && threshold <= price) {
+        currentLabel.textContent = `⚠ "Tăng tới" phải lớn hơn giá hiện tại (${price.toLocaleString("vi-VN")} ${it.unit || ""}). Nếu muốn báo khi giảm, hãy chọn "≤ (giảm tới)".`;
+        currentLabel.classList.add("alert-warn");
+        return;
+      }
+      if (dirSel.value === "below" && threshold >= price) {
+        currentLabel.textContent = `⚠ "Giảm tới" phải nhỏ hơn giá hiện tại (${price.toLocaleString("vi-VN")} ${it.unit || ""}). Nếu muốn báo khi tăng, hãy chọn "≥ (tăng tới)".`;
+        currentLabel.classList.add("alert-warn");
+        return;
+      }
     }
     try {
       const res = await fetch("/api/alerts", {
@@ -2895,6 +2925,7 @@ async function openAlertsModal() {
       });
       if (res.ok) {
         itemInput.value = ""; threshInput.value = ""; currentLabel.textContent = "";
+        currentLabel.classList.remove("alert-warn");
         renderAlertsList(modal);
       }
     } catch (e) { /* ignore */ }

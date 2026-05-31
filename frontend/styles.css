@@ -3733,6 +3733,11 @@ body.news-compact .news-title {
   min-height: 1em;
 }
 
+.alert-current.alert-warn {
+  color: var(--accent-3, #b45309);
+  font-weight: 500;
+}
+
 .alerts-list {
   margin-top: 14px;
 }
