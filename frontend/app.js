@@ -1697,9 +1697,21 @@ function showReaderModal(title, contentHtmlParts, url, wordCount) {
           return;
         }
         summaryDiv.innerHTML = `
-          <div class="reader-summary-head"><i data-lucide="sparkles"></i> Tóm tắt AI${data.cached ? ' <span class="reader-summary-tag">đã lưu</span>' : ""}</div>
+          <button type="button" class="reader-summary-head" aria-expanded="true">
+            <i data-lucide="sparkles"></i> <span>Tóm tắt AI</span>${data.cached ? ' <span class="reader-summary-tag">đã lưu</span>' : ""}
+            <i data-lucide="chevron-up" class="reader-summary-caret"></i>
+          </button>
           <div class="reader-summary-text">${renderLightMarkdown(data.summary)}</div>
         `;
+        // Collapse/expand: clicking the header hides the body, leaving just
+        // the "Tóm tắt AI" line so it stops covering the article.
+        const head = summaryDiv.querySelector(".reader-summary-head");
+        if (head) {
+          head.addEventListener("click", () => {
+            const collapsed = summaryDiv.classList.toggle("collapsed");
+            head.setAttribute("aria-expanded", String(!collapsed));
+          });
+        }
         lucide.createIcons();
       } catch (e) {
         renderSummaryError(summaryDiv, "Lỗi kết nối mạng. Kiểm tra rồi thử lại.", runSummarize);

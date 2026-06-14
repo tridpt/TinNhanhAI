@@ -2878,15 +2878,46 @@ html[data-theme="dark"] .chart-backdrop {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--accent);
   margin-bottom: 8px;
+  /* Acts as a collapse/expand toggle button. */
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
 }
 
 .reader-summary-head i {
   width: 15px;
   height: 15px;
+}
+
+/* Push the caret to the far right of the header. */
+.reader-summary-caret {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+/* Collapsed: hide the body and the bottom margin, leaving just the header. */
+.reader-summary.collapsed {
+  max-height: none;
+  overflow: visible;
+}
+
+.reader-summary.collapsed .reader-summary-text {
+  display: none;
+}
+
+.reader-summary.collapsed .reader-summary-head {
+  margin-bottom: 0;
+}
+
+.reader-summary.collapsed .reader-summary-caret {
+  transform: rotate(180deg);
 }
 
 .reader-summary-text {
