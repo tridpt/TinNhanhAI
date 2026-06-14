@@ -25,8 +25,13 @@ def ask():
 
 
 @bp.post("/api/read")
+@limit(ask_limiter)
 def read_article():
-    """Extract article content from a URL for inline reading."""
+    """Extract article content from a URL for inline reading.
+
+    Rate-limited per IP because it fetches an external URL on the caller's
+    behalf — without a cap it could be abused as an open fetch proxy.
+    """
 
     from services.reader import fetch_article
 

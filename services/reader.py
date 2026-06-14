@@ -21,6 +21,7 @@ import requests
 from bs4 import BeautifulSoup, Tag
 
 from .cache import TTLCache
+from .net_guard import is_safe_public_url
 
 CACHE = TTLCache(namespace="reader")
 CACHE_TTL = 3600  # 1 hour
@@ -127,6 +128,10 @@ def fetch_article(url: str) -> dict[str, Any]:
 
     if not url:
         return {"url": "", "title": "", "paragraphs": [], "word_count": 0, "error": "empty_url"}
+
+    # SSRF guard: never fetch internal/private addresses on behalf of a caller.
+    if not is_safe_public_url(url):
+        return {"url": url, "title": "", "paragraphs": [], "word_count": 0, "error": "blocked_url"}
 
     cached = CACHE.get(f"article:{url}")
     if cached:

@@ -15,6 +15,7 @@ Notes on reliability:
 
 from __future__ import annotations
 
+import math
 import os
 import re
 from datetime import datetime, timedelta, timezone
@@ -466,10 +467,23 @@ def convert_currency(from_cur: str, to_cur: str, amount: float) -> dict[str, Any
 
     from_cur = (from_cur or "USD").strip().upper()
     to_cur = (to_cur or "VND").strip().upper()
+
+    # Currency codes are ISO-4217-style: 3 ASCII letters. Reject anything else
+    # before it reaches the upstream URL path.
+    if not (from_cur.isalpha() and len(from_cur) == 3):
+        return {"error": "invalid from currency", "status": 400}
+    if not (to_cur.isalpha() and len(to_cur) == 3):
+        return {"error": "invalid to currency", "status": 400}
+
+    # Validate the amount: must be a finite, non-negative, sanely bounded
+    # number. NaN/inf and junk strings fall back to a rejection rather than a
+    # silent default so callers get clear feedback.
     try:
         amount = float(amount)
     except (TypeError, ValueError):
-        amount = 1.0
+        return {"error": "invalid amount", "status": 400}
+    if not math.isfinite(amount) or amount < 0 or amount > 1e12:
+        return {"error": "invalid amount", "status": 400}
 
     try:
         response = requests.get(
