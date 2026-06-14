@@ -3,6 +3,7 @@ const state = {
   activeTopic: "all",
   activeTopicData: null,
   newsFilter: "",
+  sourceFilter: "",
   showOnlyBookmarks: false,
   showOnlyReadLater: false,
   loadingQuestion: false,
@@ -71,6 +72,7 @@ const el = {
   newsList: document.getElementById("news-list"),
   newsFilterInput: document.getElementById("news-filter-input"),
   newsFilterStats: document.getElementById("news-filter-stats"),
+  sourceChips: document.getElementById("source-chips"),
   bookmarksToggle: document.getElementById("bookmarks-toggle"),
   bookmarksCount: document.getElementById("bookmarks-count"),
   readLaterToggle: document.getElementById("readlater-toggle"),
@@ -182,6 +184,7 @@ function renderTopics(topics) {
     btn.innerHTML = `<i data-lucide="${meta.icon}"></i><span>${meta.label}</span>`;
     btn.addEventListener("click", () => {
       state.activeTopic = key;
+      state.sourceFilter = "";  // a source chip from one topic may not exist in another
       renderTopics(topics);
       renderNews(map.get(key));
     });
@@ -233,6 +236,49 @@ function stripVnAccents(text) {
     .toLowerCase();
 }
 
+// Render quick "filter by source" chips above the feed. Built from whatever
+// article pool is currently shown so it reflects the active topic. Clicking a
+// chip narrows the feed to that source; clicking the active one clears it.
+function renderSourceChips(pool) {
+  if (!el.sourceChips) return;
+
+  // Distinct sources in the current pool, with article counts.
+  const counts = new Map();
+  for (const item of pool || []) {
+    const src = item.source || "";
+    if (!src) continue;
+    counts.set(src, (counts.get(src) || 0) + 1);
+  }
+
+  // If the active source filter no longer exists in this pool, drop it.
+  if (state.sourceFilter && !counts.has(state.sourceFilter)) {
+    state.sourceFilter = "";
+  }
+
+  // Fewer than 2 sources → nothing meaningful to filter by.
+  if (counts.size < 2) {
+    el.sourceChips.innerHTML = "";
+    el.sourceChips.hidden = true;
+    return;
+  }
+
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  el.sourceChips.hidden = false;
+  el.sourceChips.innerHTML = "";
+
+  sorted.forEach(([src, n]) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `source-chip${state.sourceFilter === src ? " active" : ""}`;
+    chip.textContent = `${src} (${n})`;
+    chip.addEventListener("click", () => {
+      state.sourceFilter = state.sourceFilter === src ? "" : src;
+      renderNews(state.activeTopicData);
+    });
+    el.sourceChips.appendChild(chip);
+  });
+}
+
 function renderNews(topic) {
   state.activeTopicData = topic || null;
   if (!topic) {
@@ -268,6 +314,13 @@ function renderNews(topic) {
     sourceItems = [...state.readLater.values()].reverse();
   }
 
+  // Render the source filter chips from whatever pool we're showing, then
+  // narrow by the active source (if any).
+  renderSourceChips(sourceItems);
+  if (state.sourceFilter) {
+    sourceItems = sourceItems.filter((item) => (item.source || "") === state.sourceFilter);
+  }
+
   const filtered = sourceItems.filter((item) => {
     if (!filter) return true;
     const haystack = stripVnAccents(
@@ -298,6 +351,8 @@ function renderNews(topic) {
       msg = "Chưa có bài nào trong danh sách đọc sau. Bấm biểu tượng đồng hồ trên mỗi tin để thêm.";
     } else if (onlyBookmarked) {
       msg = "Chưa có tin nào được lưu trong chủ đề này.";
+    } else if (state.sourceFilter) {
+      msg = `Không có bài nào từ nguồn "${escapeHtml(state.sourceFilter)}"` + (filterRaw ? ` khớp "${filterRaw}".` : ".");
     } else {
       msg = `Không có bài nào khớp từ khóa "${filterRaw}".`;
     }
@@ -1304,6 +1359,12 @@ async function openReader(url, fallbackTitle, meta = {}) {
   markReadLaterRead(url);
   showReaderModal(fallbackTitle || "Đang tải...", null, url);
 
+  const topicKey = meta.topic || state.activeTopic || "";
+  const showRelated = () => {
+    const modal = document.getElementById("reader-modal");
+    if (modal) renderRelatedNews(modal, url, topicKey);
+  };
+
   try {
     const response = await fetch("/api/read", {
       method: "POST",
@@ -1317,6 +1378,7 @@ async function openReader(url, fallbackTitle, meta = {}) {
         [`<p class="muted">Không trích xuất được nội dung. <a href="${url}" target="_blank" rel="noreferrer">Mở trong tab mới →</a></p>`],
         url,
       );
+      showRelated();
       return;
     }
     showReaderModal(
@@ -1325,12 +1387,14 @@ async function openReader(url, fallbackTitle, meta = {}) {
       url,
       data.word_count,
     );
+    showRelated();
   } catch (error) {
     showReaderModal(
       fallbackTitle || "Lỗi",
       [`<p class="muted">Không kết nối được. <a href="${url}" target="_blank" rel="noreferrer">Mở trong tab mới →</a></p>`],
       url,
     );
+    showRelated();
   }
 }
 
@@ -1338,6 +1402,91 @@ function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
+}
+
+// Share an article via the Web Share API (mobile) or clipboard (desktop).
+async function shareArticle(title, url, btn) {
+  if (!url) return;
+  const shareData = { title: title || "TinNhanh AI", url };
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+      return;
+    }
+  } catch (e) {
+    // User cancelled the native share sheet, or it failed — fall through to copy.
+    if (e && e.name === "AbortError") return;
+  }
+  // Fallback: copy the link and give quick visual feedback on the button.
+  try {
+    await navigator.clipboard.writeText(url);
+    if (btn) {
+      const span = btn.querySelector("span");
+      const original = span ? span.textContent : "";
+      if (span) span.textContent = "Đã copy link";
+      btn.classList.add("active");
+      setTimeout(() => {
+        if (span) span.textContent = original;
+        btn.classList.remove("active");
+      }, 1500);
+    } else {
+      showToast("Đã copy link bài viết", "check");
+    }
+  } catch (e) {
+    showToast("Không chia sẻ được trên trình duyệt này", "alert-circle");
+  }
+}
+
+// Pick a few articles from the same topic to suggest at the end of the reader.
+function findRelatedArticles(currentUrl, topicKey, limit = 5) {
+  const pool = [];
+  const seen = new Set([currentUrl]);
+
+  const addFrom = (topic) => {
+    if (!topic) return;
+    for (const item of topic.items || []) {
+      if (!item || !item.url || seen.has(item.url)) continue;
+      seen.add(item.url);
+      pool.push(item);
+    }
+  };
+
+  // Prefer the same topic, then fall back to the "all" feed for variety.
+  const map = state.dashboard && state.dashboard.topicMap;
+  if (topicKey && topicKey !== "all" && map && map[topicKey]) {
+    addFrom(map[topicKey]);
+  }
+  if (state.dashboard && state.dashboard.topics && state.dashboard.topics[0]) {
+    addFrom(state.dashboard.topics[0]);
+  }
+  if (map) {
+    for (const topic of Object.values(map)) addFrom(topic);
+  }
+  return pool.slice(0, limit);
+}
+
+function renderRelatedNews(modal, currentUrl, topicKey) {
+  const box = modal.querySelector(".reader-related");
+  if (!box) return;
+  const related = findRelatedArticles(currentUrl, topicKey);
+  if (!related.length) {
+    box.hidden = true;
+    box.innerHTML = "";
+    return;
+  }
+  const rows = related.map((item) => `
+    <button type="button" class="related-item" data-url="${encodeURIComponent(item.url)}" data-title="${escapeHtml(item.title || "")}">
+      <span class="related-item-title">${escapeHtml(item.title || "")}</span>
+      <span class="related-item-source">${escapeHtml(item.source || "")}</span>
+    </button>`).join("");
+  box.innerHTML = `<div class="reader-related-head"><i data-lucide="newspaper"></i> Tin liên quan</div>${rows}`;
+  box.hidden = false;
+  box.querySelectorAll(".related-item").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      openReader(decodeURIComponent(btn.dataset.url), btn.dataset.title, { topic: topicKey || "" });
+    });
+  });
+  lucide.createIcons();
 }
 
 // --- Reading history & stats -------------------------------------------------
@@ -1514,6 +1663,9 @@ function showReaderModal(title, contentHtmlParts, url, wordCount) {
             <button class="reader-summarize chip" type="button" title="Tóm tắt bằng AI">
               <i data-lucide="sparkles"></i><span>Tóm tắt AI</span>
             </button>
+            <button class="reader-share chip" type="button" title="Chia sẻ bài">
+              <i data-lucide="share-2"></i><span>Chia sẻ</span>
+            </button>
             <a class="reader-open-link chip" target="_blank" rel="noreferrer">
               <i data-lucide="external-link"></i><span>Mở gốc</span>
             </a>
@@ -1525,6 +1677,7 @@ function showReaderModal(title, contentHtmlParts, url, wordCount) {
         <div class="reader-meta"></div>
         <div class="reader-summary" hidden></div>
         <div class="reader-body"></div>
+        <div class="reader-related" hidden></div>
       </div>
     `;
     document.body.appendChild(modal);
@@ -1585,13 +1738,23 @@ function showReaderModal(title, contentHtmlParts, url, wordCount) {
     };
     summarizeBtn.onclick = runSummarize;
   }
+
+  // Wire share button: Web Share API on mobile, clipboard copy elsewhere.
+  const shareBtn = modal.querySelector(".reader-share");
+  if (shareBtn && url) {
+    shareBtn.onclick = () => shareArticle(title, url, shareBtn);
+  }
+
   modal.querySelector(".reader-meta").textContent = wordCount
     ? `~${Math.ceil(wordCount / 200)} phút đọc · ${wordCount} từ`
     : "";
 
   const body = modal.querySelector(".reader-body");
+  const relatedBox = modal.querySelector(".reader-related");
   if (contentHtmlParts === null) {
     body.innerHTML = `<div class="reader-loading"><div class="skeleton-line skeleton-line-title"></div><div class="skeleton-line skeleton-line-text"></div><div class="skeleton-line skeleton-line-text short"></div><div class="skeleton-line skeleton-line-text"></div></div>`;
+    // Hide stale "related" suggestions while the next article loads.
+    if (relatedBox) { relatedBox.hidden = true; relatedBox.innerHTML = ""; }
   } else {
     body.innerHTML = contentHtmlParts.join("");
   }

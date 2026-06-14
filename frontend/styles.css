@@ -4003,3 +4003,114 @@ body.news-compact .news-title {
   text-decoration: underline;
   padding: 0;
 }
+
+/* Source filter chips (quick filter by news outlet on the feed) */
+.source-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.source-chip:hover {
+  color: var(--accent);
+  border-color: rgba(15, 118, 110, 0.4);
+}
+
+.source-chip.active {
+  color: var(--accent);
+  background: rgba(15, 118, 110, 0.08);
+  border-color: rgba(15, 118, 110, 0.4);
+  font-weight: 600;
+}
+
+.source-chip-count {
+  font-size: 0.72rem;
+  opacity: 0.7;
+}
+
+html[data-theme="dark"] .source-chip:hover,
+html[data-theme="dark"] .source-chip.active {
+  border-color: rgba(45, 212, 191, 0.45);
+}
+
+html[data-theme="dark"] .source-chip.active {
+  background: rgba(45, 212, 191, 0.12);
+}
+
+/* "Related news" block at the end of the reader modal */
+.reader-related {
+  padding: 4px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reader-related-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.reader-related-head i {
+  width: 16px;
+  height: 16px;
+}
+
+.related-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.related-item:hover {
+  border-color: rgba(15, 118, 110, 0.4);
+  background: rgba(15, 118, 110, 0.04);
+}
+
+.related-item-title {
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.related-item-source {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+html[data-theme="dark"] .related-item:hover {
+  border-color: rgba(45, 212, 191, 0.45);
+  background: rgba(45, 212, 191, 0.08);
+}
+
+@media (max-width: 640px) {
+  .reader-related {
+    padding: 4px 16px 20px;
+  }
+}
