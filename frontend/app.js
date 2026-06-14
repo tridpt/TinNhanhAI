@@ -6,6 +6,7 @@ const state = {
   showOnlyBookmarks: false,
   loadingQuestion: false,
   aiEnabled: false,
+  health: null,
   recentQueries: [],
   bookmarks: new Map(),
   knownUrls: new Set(),
@@ -2006,6 +2007,7 @@ async function loadHealth() {
       throw new Error(`Health failed: ${response.status}`);
     }
     const data = await response.json();
+    state.health = data;
     state.aiEnabled = Boolean(data.ai_enabled);
     setHealth(state.aiEnabled ? "AI sẵn sàng" : "AI tắt", state.aiEnabled ? "ok" : "warn");
   } catch (error) {
@@ -2030,6 +2032,7 @@ async function loadDashboard(force = false, options = {}) {
   // Fire all requests in parallel — render each section as it arrives.
   const sections = [
     { url: `/api/health`, render: (data) => {
+      state.health = data;
       state.aiEnabled = Boolean(data.ai_enabled);
       setHealth(state.aiEnabled ? "AI sẵn sàng" : "AI tắt", state.aiEnabled ? "ok" : "warn");
     }},
@@ -2817,7 +2820,7 @@ function openAboutModal() {
         </p>
         <h4 class="stat-section-title">Tính năng chính</h4>
         <ul class="about-list">
-          <li><i data-lucide="newspaper"></i> 8 chủ đề, 9+ đầu báo, đọc inline + tóm tắt AI</li>
+          <li><i data-lucide="newspaper"></i> 10 chủ đề, 9+ đầu báo, đọc inline + tóm tắt AI</li>
           <li><i data-lucide="search"></i> Tìm kiếm toàn bộ tin, lưu bộ lọc yêu thích</li>
           <li><i data-lucide="line-chart"></i> Giá vàng/xăng/dầu, crypto, chứng khoán, ngoại tệ + biểu đồ</li>
           <li><i data-lucide="git-compare"></i> So sánh nhiều mã theo % thay đổi</li>
@@ -2839,6 +2842,84 @@ function openAboutModal() {
   modal.querySelector(".search-close").addEventListener("click", close);
   document.addEventListener("keydown", function esc(e) {
     if (e.key === "Escape" && document.getElementById("about-modal")) { close(); document.removeEventListener("keydown", esc); }
+  });
+  modal.classList.add("open");
+  lucide.createIcons();
+}
+
+// --- System status modal -----------------------------------------------------
+
+function _fmtAgo(ts) {
+  if (!ts) return "chưa chạy lần nào";
+  const secs = Math.max(0, Math.floor(Date.now() / 1000 - Number(ts)));
+  if (secs < 60) return `${secs}s trước`;
+  if (secs < 3600) return `${Math.floor(secs / 60)} phút trước`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)} giờ trước`;
+  return `${Math.floor(secs / 86400)} ngày trước`;
+}
+
+function _watcherRow(label, w) {
+  // ``w`` is the watcher_status() snapshot, or undefined if absent.
+  if (!w) {
+    return `<div class="status-row"><span class="status-dot off"></span>
+      <div><strong>${label}</strong><br><span class="muted">không có dữ liệu</span></div></div>`;
+  }
+  const running = Boolean(w.running);
+  const hasError = Boolean(w.last_error);
+  const dot = !running ? "off" : hasError ? "err" : "ok";
+  const stateText = !running ? "tắt" : hasError ? "đang lỗi" : "đang chạy";
+  const detail = !running
+    ? "watcher chưa bật (thiếu cấu hình)"
+    : hasError
+      ? `lỗi: ${escapeHtml(String(w.last_error))}`
+      : `quét gần nhất: ${_fmtAgo(w.last_scan_ts)} · gửi: ${w.last_sent ?? 0}`;
+  return `<div class="status-row"><span class="status-dot ${dot}"></span>
+    <div><strong>${label}</strong> — ${stateText}<br>
+    <span class="muted">${detail}</span></div></div>`;
+}
+
+function openSystemStatusModal() {
+  const data = state.health || {};
+  const watchers = data.watchers || {};
+  let modal = document.getElementById("status-modal");
+  if (modal) modal.remove();
+  modal = document.createElement("div");
+  modal.id = "status-modal";
+  modal.className = "search-modal";
+
+  const aiOn = Boolean(data.ai_enabled);
+  const aiDot = aiOn ? "ok" : "off";
+  const aiDetail = aiOn
+    ? `${escapeHtml(data.ai_provider || "")} · ${escapeHtml(data.ai_model || "")}`
+    : "chưa cấu hình API key";
+
+  modal.innerHTML = `
+    <div class="search-backdrop"></div>
+    <div class="search-dialog">
+      <div class="search-dialog-head">
+        <h3><i data-lucide="activity"></i> Trạng thái hệ thống</h3>
+        <button type="button" class="search-close icon-btn" aria-label="Đóng"><i data-lucide="x"></i></button>
+      </div>
+      <div class="search-results status-body">
+        <div class="status-row"><span class="status-dot ${aiDot}"></span>
+          <div><strong>Trợ lý AI</strong> — ${aiOn ? "bật" : "tắt"}<br>
+          <span class="muted">${aiDetail}</span></div></div>
+        <h4 class="stat-section-title">Watcher nền</h4>
+        ${_watcherRow("Telegram tin nóng", watchers.telegram)}
+        ${_watcherRow("Cảnh báo giá", watchers.price_alert)}
+        <p class="about-foot muted">
+          Cập nhật mỗi lần làm mới dữ liệu. Watcher chạy trong cùng tiến trình;
+          khi scale nhiều máy chỉ nên bật trên một instance.
+        </p>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const close = () => { modal.classList.remove("open"); setTimeout(() => modal.remove(), 200); };
+  modal.querySelector(".search-backdrop").addEventListener("click", close);
+  modal.querySelector(".search-close").addEventListener("click", close);
+  document.addEventListener("keydown", function esc(e) {
+    if (e.key === "Escape" && document.getElementById("status-modal")) { close(); document.removeEventListener("keydown", esc); }
   });
   modal.classList.add("open");
   lucide.createIcons();
@@ -3837,6 +3918,8 @@ function bindEvents() {
   if (compactBtn) compactBtn.addEventListener("click", toggleCompactNews);
   const aboutBtn = document.getElementById("about-btn");
   if (aboutBtn) aboutBtn.addEventListener("click", openAboutModal);
+  const healthPill = document.getElementById("health-pill");
+  if (healthPill) healthPill.addEventListener("click", openSystemStatusModal);
   const alertsBtn = document.getElementById("alerts-btn");
   if (alertsBtn) alertsBtn.addEventListener("click", openAlertsModal);
   const addForexBtn = document.getElementById("add-forex-btn");
