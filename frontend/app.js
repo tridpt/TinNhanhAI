@@ -1439,7 +1439,7 @@ function findRelatedArticles(currentUrl, topicKey, limit = 5) {
 function renderRelatedNews(modal, currentUrl, topicKey) {
   const box = modal.querySelector(".reader-related");
   if (!box) return;
-  const related = findRelatedArticles(currentUrl, topicKey);
+  const related = findRelatedArticles(currentUrl, topicKey, 3);
   if (!related.length) {
     box.hidden = true;
     box.innerHTML = "";

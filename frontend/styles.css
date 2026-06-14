@@ -4052,37 +4052,41 @@ html[data-theme="dark"] .source-chip.active {
   background: rgba(45, 212, 191, 0.12);
 }
 
-/* "Related news" block at the end of the reader modal */
+/* "Related news" block at the end of the reader modal.
+ * Pinned to the bottom of the panel (flex-shrink: 0) and capped in height so
+ * it never steals vertical space from the scrollable article body above it. */
 .reader-related {
-  padding: 4px 24px 24px;
+  flex-shrink: 0;
+  padding: 8px 24px 14px;
+  border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
 }
 
 .reader-related-head {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 0.92rem;
+  gap: 6px;
+  font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text);
-  margin-bottom: 2px;
+  color: var(--muted);
+  margin-bottom: 1px;
 }
 
 .reader-related-head i {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
 }
 
 .related-item {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: baseline;
+  gap: 8px;
   text-align: left;
-  padding: 10px 12px;
+  padding: 6px 10px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--surface);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -4094,13 +4098,19 @@ html[data-theme="dark"] .source-chip.active {
 }
 
 .related-item-title {
-  font-size: 0.9rem;
+  flex: 1;
+  font-size: 0.82rem;
   color: var(--text);
-  line-height: 1.4;
+  line-height: 1.35;
+  /* Keep each suggestion to a single line so the block stays compact. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .related-item-source {
-  font-size: 0.76rem;
+  flex-shrink: 0;
+  font-size: 0.72rem;
   color: var(--muted);
 }
 
@@ -4111,6 +4121,10 @@ html[data-theme="dark"] .related-item:hover {
 
 @media (max-width: 640px) {
   .reader-related {
-    padding: 4px 16px 20px;
+    padding: 8px 16px 12px;
+  }
+
+  .related-item-source {
+    display: none;
   }
 }
