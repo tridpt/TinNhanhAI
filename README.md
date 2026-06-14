@@ -10,7 +10,7 @@ biểu đồ, và trợ lý AI — chạy bằng Flask, đóng gói thành PWA c
 ## Tính năng
 
 ### 📰 Tin tức
-- **8 chủ đề**: Tổng hợp, Thời sự, Kinh tế, Công nghệ, Thế giới, Thể thao, Giải trí, Sức khỏe.
+- **10 chủ đề**: Tổng hợp, Thời sự, Kinh tế, Công nghệ, Thế giới, Thể thao, Giải trí, Sức khỏe, Giáo dục, Xe.
 - **9 đầu báo uy tín**: VnExpress, Thanh Niên, Tuổi Trẻ, Dân Trí, Zing, Tiền Phong,
   Người Lao Động, Nhân Dân, VOV (+ BBC Tiếng Việt cho mục Thế giới).
 - **Kho tin tích lũy**: bài cũ không bị xóa khi làm mới — lưu tối đa 200 bài/chủ đề
@@ -83,7 +83,7 @@ services/               # Business logic (không phụ thuộc Flask)
 frontend/               # SPA tĩnh (vanilla JS, không build step)
   index.html, app.js, styles.css, sw.js, manifest.webmanifest
 data/                   # SQLite: news.db, history.db, summaries.db (gitignored)
-tests/                  # pytest (115 test)
+tests/                  # pytest (136 test)
 ```
 
 Dữ liệu chảy: `routes/*` (mỏng, parse request) → `services/*` (logic + cache) → JSON.
@@ -103,7 +103,7 @@ Mở `http://127.0.0.1:5055`.
 ## Chạy tests
 
 ```bash
-python -m pytest          # 115 test, ~vài giây
+python -m pytest          # 136 test, ~vài giây
 ruff check .              # lint
 node -c frontend/app.js   # kiểm cú pháp JS
 ```
@@ -183,6 +183,12 @@ Lưu trữ cục bộ (SQLite, gitignored trong `data/`): kho tin, lịch sử g
 
 - Giá hiển thị mang tính tham khảo, không phải cam kết giao dịch.
 - Telegram watcher chạy nền trong cùng process, không cần dịch vụ riêng.
+  **Lưu ý scale:** watcher giữ trạng thái trong bộ nhớ process; nếu chạy nhiều
+  máy (Fly.io scale > 1), mỗi máy sẽ quét và gửi alert độc lập → trùng thông
+  báo. Hiện tại chạy 1 máy nên không sao; muốn scale ngang thì cần khóa phân
+  tán (Redis/DB) hoặc tách watcher ra một máy riêng.
+- Trạng thái watcher (đang chạy/lần quét cuối/lỗi gần nhất) lộ ở `/api/health`
+  dưới khóa `watchers`, tiện cho việc giám sát.
 - Service worker cache shell + CDN; bump `SW_VERSION` trong `frontend/sw.js` khi đổi
   CSS/JS để client nạp bản mới (hoặc dùng toast "Tải lại").
 - API key AI nên tách riêng cho production để tránh đụng quota free tier với local.

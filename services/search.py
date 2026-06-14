@@ -191,8 +191,7 @@ def _extract_price_from_page(url: str) -> dict[str, object] | None:
             continue
         try:
             numeric = float(str(raw_value).replace(".", "").replace(",", "."))
-            currency = tag.get("content") and (tag.get("itemprop") == "price" or attrs.get("name") == "price") and "VND" or "VND"
-            return {"value": numeric, "currency": currency, "raw": str(raw_value)}
+            return {"value": numeric, "currency": "VND", "raw": str(raw_value)}
         except Exception:
             pass
 

@@ -55,11 +55,14 @@ def _call_gemini_model(
 ) -> tuple[int, str]:
     """Single call to a Gemini model. Returns (status_code, text)."""
 
+    # Pass the API key via header rather than the URL query string so it does
+    # not leak into request logs, proxies, or error traces.
     url = (
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}"
-        f":generateContent?key={config.GEMINI_API_KEY}"
+        f":generateContent"
     )
-    response = requests.post(url, json=body, timeout=timeout)
+    headers = {"x-goog-api-key": config.GEMINI_API_KEY}
+    response = requests.post(url, json=body, headers=headers, timeout=timeout)
     if response.status_code != 200:
         return response.status_code, ""
     return 200, _extract_gemini_text(response.json())

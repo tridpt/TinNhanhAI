@@ -135,15 +135,40 @@ def run_forever() -> None:
     while True:
         try:
             hits = scan_once()
+            _record_scan(sent=len(hits))
             if hits:
                 print(f"[telegram] sent {len(hits)} alert(s)")
         except Exception as exc:  # pragma: no cover - defensive
+            _record_scan(error=str(exc))
             print(f"[telegram] scan failed: {exc}")
         time.sleep(interval)
 
 
 _started = False
 _lock = threading.Lock()
+_status: dict[str, object] = {
+    "running": False,
+    "last_scan_ts": None,
+    "last_sent": 0,
+    "last_error": None,
+}
+
+
+def _record_scan(*, sent: int = 0, error: str | None = None) -> None:
+    with _lock:
+        _status["last_scan_ts"] = time.time()
+        if error is None:
+            _status["last_sent"] = sent
+            _status["last_error"] = None
+        else:
+            _status["last_error"] = error
+
+
+def watcher_status() -> dict[str, object]:
+    """Snapshot of the watcher's health for the /api/health endpoint."""
+
+    with _lock:
+        return dict(_status)
 
 
 def start_in_background() -> bool:
@@ -162,6 +187,7 @@ def start_in_background() -> bool:
         thread = threading.Thread(target=run_forever, name="telegram-watcher", daemon=True)
         thread.start()
         _started = True
+        _status["running"] = True
         return True
 
 

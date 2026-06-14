@@ -58,6 +58,9 @@ def health():
     elif provider == "openai":
         model = config.OPENAI_MODEL
 
+    from services.price_alert import watcher_status as price_watcher_status
+    from services.telegram_alert import watcher_status as telegram_watcher_status
+
     return jsonify(
         {
             "status": "ok",
@@ -65,5 +68,9 @@ def health():
             "ai_enabled": ai_enabled(),
             "ai_provider": provider,
             "ai_model": model,
+            "watchers": {
+                "telegram": telegram_watcher_status(),
+                "price_alert": price_watcher_status(),
+            },
         }
     )

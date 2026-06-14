@@ -34,6 +34,7 @@ class RateLimiter:
         cutoff = now - 60
         key = self._client_key()
         with self._lock:
+            self._evict_stale(cutoff, keep=key)
             bucket = self._hits.setdefault(key, deque())
             while bucket and bucket[0] < cutoff:
                 bucket.popleft()
@@ -42,6 +43,23 @@ class RateLimiter:
                 return False, retry_after
             bucket.append(now)
             return True, 0
+
+    def _evict_stale(self, cutoff: float, *, keep: str) -> None:
+        """Drop buckets whose most recent hit is older than the window.
+
+        Without this, every distinct client IP would leave a ``deque`` behind
+        forever, slowly leaking memory on a long-running node. Called under the
+        lock from :meth:`check`. ``keep`` is the current client, skipped so it
+        is pruned by the normal popleft path below instead.
+        """
+
+        stale = [
+            client
+            for client, bucket in self._hits.items()
+            if client != keep and (not bucket or bucket[-1] < cutoff)
+        ]
+        for client in stale:
+            del self._hits[client]
 
 
 def limit(limiter: RateLimiter) -> Callable:
