@@ -301,12 +301,29 @@ def _refresh_dashboard_topics(force: bool) -> None:
 
 
 def get_dashboard_payload(*, force: bool = False) -> dict[str, Any]:
-    cache_key = "dashboard"
-    if not force:
-        cached = CACHE.get(cache_key)
-        if cached:
-            return cached
+    """Return the dashboard payload, served stale-while-revalidate.
 
+    A force refresh always rebuilds synchronously. Otherwise we serve the last
+    payload immediately and, if it is older than ``DASHBOARD_REFRESH_SECONDS``,
+    kick off a single background rebuild so the next request gets fresh data —
+    the user never waits on the ~15-25s cold fetch.
+    """
+
+    if force:
+        payload = _build_dashboard_payload(force=True)
+        # Seed the SWR wrapper too so the next non-force read sees it as fresh.
+        CACHE.set("dashboard", {"v": payload, "ts": datetime.now().timestamp()},
+                  config.DASHBOARD_REFRESH_SECONDS * 4)
+        return payload
+
+    return CACHE.get_or_set_swr(
+        "dashboard",
+        lambda: _build_dashboard_payload(force=False),
+        fresh_seconds=config.DASHBOARD_REFRESH_SECONDS,
+    )
+
+
+def _build_dashboard_payload(*, force: bool = False) -> dict[str, Any]:
     # The five data sources (news RSS, prices, crypto, stocks, weather) are
     # independent network calls. Running them serially made the cold refresh
     # take the *sum* of their latencies (~50s). Launch them together so the
@@ -366,7 +383,6 @@ Dữ liệu:
         "stocks": stocks_payload,
         "weather": weather_payload,
     }
-    CACHE.set(cache_key, payload, config.DASHBOARD_REFRESH_SECONDS)
     return payload
 
 

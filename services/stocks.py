@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -84,55 +85,63 @@ def _fetch_index_history(symbol: str, *, days: int = 90) -> dict[str, Any] | Non
     }
 
 
+def _build_index_card(spec: dict[str, str]) -> dict[str, Any] | None:
+    snapshot = _fetch_index_history(spec["symbol"])
+    if snapshot is None:
+        return None
+    return {
+        "key": f"stock_{spec['symbol'].lower()}",
+        "label": spec["label"],
+        "provider": "VNDirect",
+        "symbol": spec["symbol"],
+        "icon": spec["icon"],
+        "price": snapshot["last_close"],
+        "change": snapshot["change"],
+        "change_percent": snapshot["change_percent"],
+        "price_text": f"{snapshot['last_close']:,.2f}".replace(",", "."),
+        "change_text": _format_change(snapshot["change"], snapshot["change_percent"]),
+        "unit": "điểm",
+        "updated_label": _now_label(),
+        "source_url": f"https://vndirect.com.vn/portal/cong-cu/du-lieu-truc-tuyen.shtml#{spec['symbol']}",
+        "session_history": snapshot["session_history"],
+    }
+
+
+def _build_stock_card(spec: dict[str, str]) -> dict[str, Any] | None:
+    stock_data = _fetch_yahoo_stock(spec["symbol"])
+    if stock_data is None:
+        return None
+    return {
+        "key": f"stock_{spec['symbol'].replace('.', '_').lower()}",
+        "label": spec["label"],
+        "provider": "Yahoo",
+        "symbol": spec["symbol"],
+        "icon": spec["icon"],
+        "price": stock_data["price"],
+        "change": stock_data["change"],
+        "change_percent": stock_data["change_percent"],
+        "price_text": f"{stock_data['price']:,.0f}".replace(",", "."),
+        "change_text": _format_change(stock_data["change"], stock_data["change_percent"]),
+        "unit": "VND",
+        "updated_label": _now_label(),
+        "source_url": f"https://finance.yahoo.com/quote/{spec['symbol']}",
+        "session_history": stock_data.get("history", []),
+    }
+
+
 def fetch_stock_indices() -> list[dict[str, Any]]:
+    # Indices (VNDirect) and individual stocks (Yahoo) are all independent
+    # network calls. Fetching them in one shared pool turns ~11 serial
+    # round-trips into roughly the slowest single call.
+    builders = [(_build_index_card, spec) for spec in INDICES]
+    builders += [(_build_stock_card, spec) for spec in VN_STOCKS]
+
     cards: list[dict[str, Any]] = []
-    for spec in INDICES:
-        snapshot = _fetch_index_history(spec["symbol"])
-        if snapshot is None:
-            continue
-
-        cards.append(
-            {
-                "key": f"stock_{spec['symbol'].lower()}",
-                "label": spec["label"],
-                "provider": "VNDirect",
-                "symbol": spec["symbol"],
-                "icon": spec["icon"],
-                "price": snapshot["last_close"],
-                "change": snapshot["change"],
-                "change_percent": snapshot["change_percent"],
-                "price_text": f"{snapshot['last_close']:,.2f}".replace(",", "."),
-                "change_text": _format_change(snapshot["change"], snapshot["change_percent"]),
-                "unit": "điểm",
-                "updated_label": _now_label(),
-                "source_url": f"https://vndirect.com.vn/portal/cong-cu/du-lieu-truc-tuyen.shtml#{spec['symbol']}",
-                "session_history": snapshot["session_history"],
-            }
-        )
-
-    # Fetch individual VN stocks via Yahoo Finance.
-    for spec in VN_STOCKS:
-        stock_data = _fetch_yahoo_stock(spec["symbol"])
-        if stock_data is None:
-            continue
-        cards.append(
-            {
-                "key": f"stock_{spec['symbol'].replace('.', '_').lower()}",
-                "label": spec["label"],
-                "provider": "Yahoo",
-                "symbol": spec["symbol"],
-                "icon": spec["icon"],
-                "price": stock_data["price"],
-                "change": stock_data["change"],
-                "change_percent": stock_data["change_percent"],
-                "price_text": f"{stock_data['price']:,.0f}".replace(",", "."),
-                "change_text": _format_change(stock_data["change"], stock_data["change_percent"]),
-                "unit": "VND",
-                "updated_label": _now_label(),
-                "source_url": f"https://finance.yahoo.com/quote/{spec['symbol']}",
-                "session_history": stock_data.get("history", []),
-            }
-        )
+    with ThreadPoolExecutor(max_workers=min(11, len(builders))) as pool:
+        results = pool.map(lambda pair: pair[0](pair[1]), builders)
+        for card in results:
+            if card is not None:
+                cards.append(card)
     return cards
 
 

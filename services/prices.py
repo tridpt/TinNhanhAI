@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
@@ -91,8 +92,9 @@ def get_prices_payload(*, force: bool = False) -> dict[str, Any]:
         if cached:
             return cached
 
-    cards: list[dict[str, Any]] = []
-    for spec in config.PRICE_SPECS:
+    # The three Yahoo quotes are independent network calls — fetch them in
+    # parallel so the wall time is the slowest single quote, not their sum.
+    def _build_card(spec: dict[str, Any]) -> dict[str, Any]:
         try:
             quote_data = _yahoo_chart(spec["symbol"])
             quote_data.update(
@@ -128,11 +130,20 @@ def get_prices_payload(*, force: bool = False) -> dict[str, Any]:
                 "source_url": f"https://finance.yahoo.com/quote/{spec['symbol']}",
                 "error": str(exc),
             }
+        return quote_data
+
+    # VN prices is itself a separate network call — run it alongside the Yahoo
+    # quotes rather than after them.
+    with ThreadPoolExecutor(max_workers=len(config.PRICE_SPECS) + 1) as pool:
+        vn_future = pool.submit(get_vn_prices, force=force)
+        cards = list(pool.map(_build_card, config.PRICE_SPECS))
+        vn_payload = vn_future.result()
+
+    # DB writes stay on the main thread to avoid SQLite write contention.
+    for quote_data in cards:
         record_price(quote_data["key"], quote_data.get("price"), label=quote_data["label"])
         quote_data["history"] = get_history(quote_data["key"])
-        cards.append(quote_data)
 
-    vn_payload = get_vn_prices(force=force)
     payload = {
         "generated_at": datetime.now(LOCAL_TZ).isoformat(),
         "cards": cards,

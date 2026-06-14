@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
@@ -187,31 +188,46 @@ def get_crypto_payload(*, force: bool = False) -> dict[str, Any]:
     return payload
 
 
-def _fetch_crypto_klines(symbols: list[str]) -> dict[str, list[dict[str, Any]]]:
-    """Fetch 3-month history from Binance klines for charts."""
+def _fetch_one_kline(symbol: str) -> tuple[str, list[dict[str, Any]]]:
+    """Fetch 90-day daily klines for a single symbol. Never raises."""
 
+    try:
+        response = requests.get(
+            "https://api.binance.com/api/v3/klines",
+            params={"symbol": symbol, "interval": "1d", "limit": 90},
+            headers=HEADERS,
+            timeout=TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except Exception:
+        return symbol, []
+    if not isinstance(data, list):
+        return symbol, []
+    points = []
+    for candle in data:
+        # candle[0] = open time ms, candle[4] = close price
+        ts = int(candle[0]) // 1000
+        close = float(candle[4])
+        points.append({"ts": ts, "value": close})
+    return symbol, points
+
+
+def _fetch_crypto_klines(symbols: list[str]) -> dict[str, list[dict[str, Any]]]:
+    """Fetch 3-month history from Binance klines for charts.
+
+    Each symbol is a separate klines call; fetching them concurrently turns
+    ~10 serial round-trips into roughly one, which dominated the crypto
+    payload's cold-load time.
+    """
+
+    if not symbols:
+        return {}
     result: dict[str, list[dict[str, Any]]] = {}
-    for symbol in symbols:
-        try:
-            response = requests.get(
-                "https://api.binance.com/api/v3/klines",
-                params={"symbol": symbol, "interval": "1d", "limit": 90},
-                headers=HEADERS,
-                timeout=TIMEOUT,
-            )
-            response.raise_for_status()
-            data = response.json()
-        except Exception:
-            continue
-        if not isinstance(data, list):
-            continue
-        points = []
-        for candle in data:
-            # candle[0] = open time ms, candle[4] = close price
-            ts = int(candle[0]) // 1000
-            close = float(candle[4])
-            points.append({"ts": ts, "value": close})
-        result[symbol] = points
+    with ThreadPoolExecutor(max_workers=min(10, len(symbols))) as pool:
+        for symbol, points in pool.map(_fetch_one_kline, symbols):
+            if points:
+                result[symbol] = points
     return result
 
 
