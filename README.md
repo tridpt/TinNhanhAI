@@ -83,7 +83,7 @@ services/               # Business logic (không phụ thuộc Flask)
 frontend/               # SPA tĩnh (vanilla JS, không build step)
   index.html, app.js, styles.css, sw.js, manifest.webmanifest
 data/                   # SQLite: news.db, history.db, summaries.db (gitignored)
-tests/                  # pytest (136 test)
+tests/                  # pytest (158 test)
 ```
 
 Dữ liệu chảy: `routes/*` (mỏng, parse request) → `services/*` (logic + cache) → JSON.
@@ -100,10 +100,14 @@ python app.py
 
 Mở `http://127.0.0.1:5055`.
 
+> `DEBUG` mặc định **tắt** (không bật Werkzeug debugger). Khi dev muốn hot-reload
+> + traceback chi tiết, chạy `DEBUG=1 python app.py` (hoặc đặt `DEBUG=1` trong
+> `.env`). Server vẫn là Flask dev; chỉ bật waitress khi đặt `TINNHANH_PROD=1`.
+
 ## Chạy tests
 
 ```bash
-python -m pytest          # 136 test, ~vài giây
+python -m pytest          # 158 test, ~vài giây
 ruff check .              # lint
 node -c frontend/app.js   # kiểm cú pháp JS
 ```

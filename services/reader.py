@@ -39,15 +39,14 @@ TIMEOUT = 15
 ARTICLE_SELECTORS = [
     "article.fck_detail",           # VnExpress
     "div.fck_detail",               # VnExpress variant
-    "div.detail-content",           # Thanh Nien
+    "div.detail-content",           # Thanh Nien + Dan Tri (shared class name)
     "div.detail__content",          # Thanh Nien variant
     "div#main-detail-body",         # Tuoi Tre
     "div.singular-content",         # Tuoi Tre variant
     "div.e-body__content",          # Dan Tri
-    "div.detail-content",           # Dan Tri variant
     "div.the-article-body",         # Zing News
     "div.article__body",            # Zing variant
-    "div.article-content",          # Tien Phong, NLD
+    "div.article-content",          # Tien Phong + NLD (shared class name)
     "div.content-detail",           # NLD variant
     "div.detail_text_vov",          # VOV
     "div.cms-body",                 # Nhan Dan

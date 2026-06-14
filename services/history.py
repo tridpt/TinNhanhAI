@@ -34,9 +34,35 @@ _RETENTION_DAYS = 60
 _PRUNE_PROBABILITY = 1 / 200
 
 
+_CONN: sqlite3.Connection | None = None
+_CONN_PATH: Path | None = None
+
+
 def _open() -> sqlite3.Connection:
+    """Return a process-wide connection, (re)created only when the path changes.
+
+    Re-opening a connection and running ``CREATE TABLE IF NOT EXISTS`` on every
+    read/write is wasteful under load. We cache one connection
+    (``check_same_thread=False``) and rely on the module ``_LOCK`` — which
+    already wraps every query — to serialise access across threads. The cache
+    is keyed on ``DB_PATH`` so tests that monkeypatch it to a temp file still
+    get a fresh database.
+    """
+
+    global _CONN, _CONN_PATH
+    if _CONN is not None and _CONN_PATH == DB_PATH:
+        return _CONN
+    if _CONN is not None:
+        try:
+            _CONN.close()
+        except Exception:
+            pass
+        _CONN = None
+
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=5.0, isolation_level=None)
+    conn = sqlite3.connect(
+        DB_PATH, timeout=5.0, isolation_level=None, check_same_thread=False
+    )
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute(
         """
@@ -52,6 +78,8 @@ def _open() -> sqlite3.Connection:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_price_history_key_ts ON price_history(key, ts)"
     )
+    _CONN = conn
+    _CONN_PATH = DB_PATH
     return conn
 
 
@@ -77,21 +105,18 @@ def record_price(key: str, value: float | None, *, label: str = "") -> bool:
 
     with _LOCK:
         conn = _open()
-        try:
-            row = conn.execute(
-                "SELECT MAX(ts) FROM price_history WHERE key = ?", (key,)
-            ).fetchone()
-            last_ts = int(row[0]) if row and row[0] is not None else 0
-            if last_ts >= cutoff:
-                return False
-            conn.execute(
-                "INSERT OR IGNORE INTO price_history(key, ts, value, label)"
-                " VALUES (?, ?, ?, ?)",
-                (key, now, numeric, label or ""),
-            )
-            inserted = True
-        finally:
-            conn.close()
+        row = conn.execute(
+            "SELECT MAX(ts) FROM price_history WHERE key = ?", (key,)
+        ).fetchone()
+        last_ts = int(row[0]) if row and row[0] is not None else 0
+        if last_ts >= cutoff:
+            return False
+        conn.execute(
+            "INSERT OR IGNORE INTO price_history(key, ts, value, label)"
+            " VALUES (?, ?, ?, ?)",
+            (key, now, numeric, label or ""),
+        )
+        inserted = True
 
     if inserted and random.random() < _PRUNE_PROBABILITY:
         # Best-effort: never raise from a sampling-based maintenance hook.
@@ -111,15 +136,12 @@ def get_history(key: str, *, days: int = 7, limit: int = 200) -> list[dict[str, 
 
     with _LOCK:
         conn = _open()
-        try:
-            rows = conn.execute(
-                "SELECT ts, value FROM price_history"
-                " WHERE key = ? AND ts >= ?"
-                " ORDER BY ts ASC",
-                (key, cutoff),
-            ).fetchall()
-        finally:
-            conn.close()
+        rows = conn.execute(
+            "SELECT ts, value FROM price_history"
+            " WHERE key = ? AND ts >= ?"
+            " ORDER BY ts ASC",
+            (key, cutoff),
+        ).fetchall()
 
     if not rows:
         return []
@@ -139,8 +161,5 @@ def prune(days: int = 60) -> int:
     cutoff = int(time.time()) - days * 86400
     with _LOCK:
         conn = _open()
-        try:
-            cur = conn.execute("DELETE FROM price_history WHERE ts < ?", (cutoff,))
-            return cur.rowcount or 0
-        finally:
-            conn.close()
+        cur = conn.execute("DELETE FROM price_history WHERE ts < ?", (cutoff,))
+        return cur.rowcount or 0

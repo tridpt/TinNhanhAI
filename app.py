@@ -96,7 +96,10 @@ if __name__ == "__main__":
         print("[price-alert] watcher enabled")
     # Pre-warm caches in background so the first user request is instant.
     _start_prewarm()
-    use_prod = os.getenv("TINNHANH_PROD", "").lower() in {"1", "true", "yes"} or not config.DEBUG
+    # Server choice is opt-in via TINNHANH_PROD only. DEBUG no longer forces
+    # prod mode — it solely controls the (off-by-default) Werkzeug debugger, so
+    # a plain ``python app.py`` still gives the Flask dev server with reload.
+    use_prod = os.getenv("TINNHANH_PROD", "").lower() in {"1", "true", "yes"}
     if use_prod:
         _run_prod(target_port)
     else:

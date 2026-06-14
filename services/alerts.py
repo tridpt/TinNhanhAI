@@ -22,10 +22,33 @@ DB_PATH = Path(__file__).resolve().parent.parent / "data" / "alerts.db"
 _LOCK = threading.Lock()
 VALID_DIRECTIONS = {"above", "below"}
 
+_CONN: sqlite3.Connection | None = None
+_CONN_PATH: Path | None = None
+
 
 def _open() -> sqlite3.Connection:
+    """Return a process-wide connection, (re)created only when the path changes.
+
+    One cached connection (``check_same_thread=False``) serialised by the
+    module ``_LOCK`` avoids re-opening + ``CREATE TABLE`` on every query. The
+    cache is keyed on ``DB_PATH`` so tests that monkeypatch it to a temp file
+    still get a fresh database.
+    """
+
+    global _CONN, _CONN_PATH
+    if _CONN is not None and _CONN_PATH == DB_PATH:
+        return _CONN
+    if _CONN is not None:
+        try:
+            _CONN.close()
+        except Exception:
+            pass
+        _CONN = None
+
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=5.0, isolation_level=None)
+    conn = sqlite3.connect(
+        DB_PATH, timeout=5.0, isolation_level=None, check_same_thread=False
+    )
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute(
         """
@@ -43,6 +66,8 @@ def _open() -> sqlite3.Connection:
         )
         """
     )
+    _CONN = conn
+    _CONN_PATH = DB_PATH
     return conn
 
 
@@ -68,15 +93,12 @@ def add_alert(
     now = int(time.time())
     with _LOCK:
         conn = _open()
-        try:
-            cur = conn.execute(
-                "INSERT INTO alerts(item_key, label, unit, direction, threshold, active, created_at)"
-                " VALUES (?, ?, ?, ?, ?, 1, ?)",
-                (item_key, label or "", unit or "", direction, threshold, now),
-            )
-            alert_id = cur.lastrowid
-        finally:
-            conn.close()
+        cur = conn.execute(
+            "INSERT INTO alerts(item_key, label, unit, direction, threshold, active, created_at)"
+            " VALUES (?, ?, ?, ?, ?, 1, ?)",
+            (item_key, label or "", unit or "", direction, threshold, now),
+        )
+        alert_id = cur.lastrowid
     return {
         "id": alert_id,
         "item_key": item_key,
@@ -93,14 +115,11 @@ def list_alerts(*, active_only: bool = False) -> list[dict[str, Any]]:
     clause = " WHERE active = 1" if active_only else ""
     with _LOCK:
         conn = _open()
-        try:
-            rows = conn.execute(
-                "SELECT id, item_key, label, unit, direction, threshold, active,"
-                " created_at, triggered_at, triggered_price"
-                f" FROM alerts{clause} ORDER BY active DESC, created_at DESC"
-            ).fetchall()
-        finally:
-            conn.close()
+        rows = conn.execute(
+            "SELECT id, item_key, label, unit, direction, threshold, active,"
+            " created_at, triggered_at, triggered_price"
+            f" FROM alerts{clause} ORDER BY active DESC, created_at DESC"
+        ).fetchall()
     return [
         {
             "id": r[0],
@@ -121,25 +140,19 @@ def list_alerts(*, active_only: bool = False) -> list[dict[str, Any]]:
 def delete_alert(alert_id: int) -> bool:
     with _LOCK:
         conn = _open()
-        try:
-            cur = conn.execute("DELETE FROM alerts WHERE id = ?", (alert_id,))
-            return (cur.rowcount or 0) > 0
-        finally:
-            conn.close()
+        cur = conn.execute("DELETE FROM alerts WHERE id = ?", (alert_id,))
+        return (cur.rowcount or 0) > 0
 
 
 def mark_triggered(alert_id: int, price: float) -> None:
     now = int(time.time())
     with _LOCK:
         conn = _open()
-        try:
-            conn.execute(
-                "UPDATE alerts SET active = 0, triggered_at = ?, triggered_price = ?"
-                " WHERE id = ?",
-                (now, float(price), alert_id),
-            )
-        finally:
-            conn.close()
+        conn.execute(
+            "UPDATE alerts SET active = 0, triggered_at = ?, triggered_price = ?"
+            " WHERE id = ?",
+            (now, float(price), alert_id),
+        )
 
 
 def is_crossed(direction: str, price: float, threshold: float) -> bool:

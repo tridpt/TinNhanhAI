@@ -25,7 +25,10 @@ _load_env_file()
 APP_NAME = os.getenv("APP_NAME", "TinNhanh AI")
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "5055"))
-DEBUG = os.getenv("DEBUG", "1").lower() not in {"0", "false", "no"}
+# Default to OFF: a stray ``python app.py`` should not expose the Werkzeug
+# debugger (its interactive console allows remote code execution if reachable).
+# Opt in explicitly with ``DEBUG=1`` for local development.
+DEBUG = os.getenv("DEBUG", "0").lower() not in {"0", "false", "no"}
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()

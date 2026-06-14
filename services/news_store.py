@@ -17,10 +17,33 @@ MAX_ARTICLES_PER_TOPIC = 200
 
 _LOCK = threading.Lock()
 
+_CONN: sqlite3.Connection | None = None
+_CONN_PATH: Path | None = None
+
 
 def _open() -> sqlite3.Connection:
+    """Return a process-wide connection, (re)created only when the path changes.
+
+    One cached connection (``check_same_thread=False``) serialised by the
+    module ``_LOCK`` avoids re-opening + ``CREATE TABLE`` on every query. The
+    cache is keyed on ``DB_PATH`` so tests that monkeypatch it to a temp file
+    still get a fresh database.
+    """
+
+    global _CONN, _CONN_PATH
+    if _CONN is not None and _CONN_PATH == DB_PATH:
+        return _CONN
+    if _CONN is not None:
+        try:
+            _CONN.close()
+        except Exception:
+            pass
+        _CONN = None
+
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=5.0, isolation_level=None)
+    conn = sqlite3.connect(
+        DB_PATH, timeout=5.0, isolation_level=None, check_same_thread=False
+    )
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute(
         """
@@ -41,6 +64,8 @@ def _open() -> sqlite3.Connection:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_articles_topic_added ON articles(topic, added_at DESC)"
     )
+    _CONN = conn
+    _CONN_PATH = DB_PATH
     return conn
 
 
@@ -57,54 +82,54 @@ def upsert_articles(topic: str, items: list[dict[str, Any]]) -> int:
 
     with _LOCK:
         conn = _open()
-        try:
-            for item in items:
-                url = (item.get("url") or "").strip()
-                if not url:
-                    continue
-                try:
-                    conn.execute(
-                        """
-                        INSERT OR IGNORE INTO articles
-                            (url, topic, title, summary, source, thumbnail, published_at, published_label, added_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            url,
-                            topic,
-                            item.get("title") or "",
-                            item.get("summary") or "",
-                            item.get("source") or "",
-                            item.get("thumbnail") or "",
-                            item.get("published_at") or "",
-                            item.get("published_label") or "",
-                            now,
-                        ),
-                    )
-                    if conn.total_changes:
-                        inserted += 1
-                except Exception:
-                    continue
-
-            # Prune oldest if over cap.
-            count = conn.execute(
-                "SELECT COUNT(*) FROM articles WHERE topic = ?", (topic,)
-            ).fetchone()[0]
-            if count > MAX_ARTICLES_PER_TOPIC:
-                excess = count - MAX_ARTICLES_PER_TOPIC
-                conn.execute(
+        for item in items:
+            url = (item.get("url") or "").strip()
+            if not url:
+                continue
+            try:
+                cur = conn.execute(
                     """
-                    DELETE FROM articles WHERE rowid IN (
-                        SELECT rowid FROM articles
-                        WHERE topic = ?
-                        ORDER BY added_at ASC, published_at ASC
-                        LIMIT ?
-                    )
+                    INSERT OR IGNORE INTO articles
+                        (url, topic, title, summary, source, thumbnail, published_at, published_label, added_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (topic, excess),
+                    (
+                        url,
+                        topic,
+                        item.get("title") or "",
+                        item.get("summary") or "",
+                        item.get("source") or "",
+                        item.get("thumbnail") or "",
+                        item.get("published_at") or "",
+                        item.get("published_label") or "",
+                        now,
+                    ),
                 )
-        finally:
-            conn.close()
+                # ``rowcount`` is per-statement: 1 when the row was inserted,
+                # 0 when ``OR IGNORE`` skipped a duplicate. (``total_changes``
+                # would over-count since the connection is now shared.)
+                if cur.rowcount:
+                    inserted += 1
+            except Exception:
+                continue
+
+        # Prune oldest if over cap.
+        count = conn.execute(
+            "SELECT COUNT(*) FROM articles WHERE topic = ?", (topic,)
+        ).fetchone()[0]
+        if count > MAX_ARTICLES_PER_TOPIC:
+            excess = count - MAX_ARTICLES_PER_TOPIC
+            conn.execute(
+                """
+                DELETE FROM articles WHERE rowid IN (
+                    SELECT rowid FROM articles
+                    WHERE topic = ?
+                    ORDER BY added_at ASC, published_at ASC
+                    LIMIT ?
+                )
+                """,
+                (topic, excess),
+            )
     return inserted
 
 
@@ -113,19 +138,16 @@ def get_articles(topic: str, *, offset: int = 0, limit: int = 20) -> list[dict[s
 
     with _LOCK:
         conn = _open()
-        try:
-            rows = conn.execute(
-                """
-                SELECT url, title, summary, source, thumbnail, published_at, published_label
-                FROM articles
-                WHERE topic = ?
-                ORDER BY published_at DESC, added_at DESC
-                LIMIT ? OFFSET ?
-                """,
-                (topic, limit, offset),
-            ).fetchall()
-        finally:
-            conn.close()
+        rows = conn.execute(
+            """
+            SELECT url, title, summary, source, thumbnail, published_at, published_label
+            FROM articles
+            WHERE topic = ?
+            ORDER BY published_at DESC, added_at DESC
+            LIMIT ? OFFSET ?
+            """,
+            (topic, limit, offset),
+        ).fetchall()
 
     return [
         {
@@ -144,12 +166,9 @@ def get_articles(topic: str, *, offset: int = 0, limit: int = 20) -> list[dict[s
 def count_articles(topic: str) -> int:
     with _LOCK:
         conn = _open()
-        try:
-            return conn.execute(
-                "SELECT COUNT(*) FROM articles WHERE topic = ?", (topic,)
-            ).fetchone()[0]
-        finally:
-            conn.close()
+        return conn.execute(
+            "SELECT COUNT(*) FROM articles WHERE topic = ?", (topic,)
+        ).fetchone()[0]
 
 
 def search_articles(
@@ -194,10 +213,7 @@ def search_articles(
 
     with _LOCK:
         conn = _open()
-        try:
-            rows = conn.execute(sql, params).fetchall()
-        finally:
-            conn.close()
+        rows = conn.execute(sql, params).fetchall()
 
     seen: set[str] = set()
     results: list[dict[str, Any]] = []
@@ -228,10 +244,7 @@ def list_sources() -> list[str]:
 
     with _LOCK:
         conn = _open()
-        try:
-            rows = conn.execute(
-                "SELECT DISTINCT source FROM articles WHERE source != '' ORDER BY source"
-            ).fetchall()
-        finally:
-            conn.close()
+        rows = conn.execute(
+            "SELECT DISTINCT source FROM articles WHERE source != '' ORDER BY source"
+        ).fetchall()
     return [row[0] for row in rows]
