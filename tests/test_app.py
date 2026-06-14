@@ -147,3 +147,53 @@ def test_news_topic_accepts_known_topic(flask_client, monkeypatch):
     response = flask_client.get("/api/news/all")
     assert response.status_code == 200
     assert response.get_json()["key"] == "all"
+
+
+def test_read_requires_url(flask_client):
+    from app import ask_limiter
+
+    ask_limiter._hits.clear()
+    response = flask_client.post("/api/read", json={})
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "url is required"
+
+
+def test_read_blocks_internal_url(flask_client):
+    """SSRF guard: a loopback/metadata URL must be rejected before any fetch."""
+
+    from app import ask_limiter
+
+    ask_limiter._hits.clear()
+
+    # If the guard worked, reader.fetch_article never reaches requests.get;
+    # patch it to blow up so a regression (guard bypassed) fails loudly.
+    with patch("services.reader.requests.get", side_effect=AssertionError("must not fetch")):
+        response = flask_client.post(
+            "/api/read", json={"url": "http://169.254.169.254/latest/meta-data/"}
+        )
+
+    assert response.status_code == 200
+    assert response.get_json()["error"] == "blocked_url"
+
+
+def test_read_allows_public_url(flask_client, monkeypatch):
+    """A public URL passes the guard and reaches the extractor (stubbed)."""
+
+    from app import ask_limiter
+
+    ask_limiter._hits.clear()
+
+    import services.reader as reader
+
+    monkeypatch.setattr(reader, "is_safe_public_url", lambda url: True)
+    monkeypatch.setattr(
+        reader,
+        "fetch_article",
+        lambda url: {"url": url, "title": "Stub", "paragraphs": ["x"], "word_count": 1, "error": None},
+    )
+
+    response = flask_client.post("/api/read", json={"url": "https://vnexpress.net/a"})
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["title"] == "Stub"
+    assert payload["error"] is None

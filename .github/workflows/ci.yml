@@ -30,6 +30,14 @@ jobs:
       - name: Lint with ruff
         run: ruff check .
 
+      - name: Audit dependencies for known CVEs
+        run: |
+          pip install pip-audit
+          # diskcache 5.6.3 is the latest release; CVE-2025-69872 (pickle RCE)
+          # has no fixed version yet and only applies with write access to the
+          # local cache dir. Ignore it explicitly so CI still flags *new* CVEs.
+          pip-audit -r requirements.txt --ignore-vuln CVE-2025-69872
+
       - name: Smoke import
         run: python -c "import app; import services; import services.vn_prices; import services.vn_gold; import services.telegram_alert; import services.rate_limit; import services.history; import services.news_store; import services.crypto; import services.stocks; import services.weather; import services.reader; print('ok')"
 
