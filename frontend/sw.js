@@ -10,7 +10,7 @@
  * - Anything else (e.g. fonts, lucide CDN) falls through to the network.
  */
 
-const SW_VERSION = "tinnhanh-v35";
+const SW_VERSION = "tinnhanh-v36";
 const SHELL_CACHE = `shell-${SW_VERSION}`;
 const API_CACHE = `api-${SW_VERSION}`;
 
@@ -18,6 +18,7 @@ const SHELL_ASSETS = [
   "/",
   "/index.html",
   "/styles.css",
+  "/logic.js",
   "/app.js",
   "/manifest.webmanifest",
   "/icons/icon.svg",

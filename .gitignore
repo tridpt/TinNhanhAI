@@ -24,6 +24,9 @@ state/
 server.out.log
 server.err.log
 
+# node / frontend tests
+node_modules/
+
 # editor
 .vscode/
 .idea/

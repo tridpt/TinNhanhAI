@@ -40,3 +40,21 @@ pip-audit -r requirements.txt
 ```
 
 CI chạy bước này mỗi lần push/PR vào `main`.
+
+## Dev-dependency (chỉ ảnh hưởng môi trường phát triển)
+
+### vitest / esbuild — GHSA-67mh-4wv8-2f99 và liên quan
+
+- **Tình trạng:** `npm audit` báo vài lỗ hổng trong chuỗi phụ thuộc của
+  `vitest` (qua `esbuild`/`vite`).
+- **Bản chất:** lỗ hổng nằm ở **esbuild dev server** — cho phép website bất kỳ
+  gửi request tới dev server đang chạy và đọc response.
+- **Rủi ro thực tế: không đáng kể.** Ta chỉ chạy `vitest run` (chạy test một
+  lần rồi thoát), **không bao giờ** khởi động esbuild/vite dev server. Frontend
+  cũng không có build step — production chỉ phục vụ `app.js`/`logic.js` tĩnh,
+  nên các gói này **không bao giờ được deploy**.
+- **Quyết định:** giữ `vitest@^2.x` vì bản ổn định trên Windows (vitest 4 dùng
+  rolldown gặp lỗi native binding trên Windows — bug npm với optional deps).
+  `node_modules` được gitignore, không commit.
+- **Việc cần làm:** bump vitest khi có bản vá tương thích Windows, hoặc khi
+  esbuild/vite phát hành bản vá đi vào vitest 2.x.

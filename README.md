@@ -107,9 +107,10 @@ Mở `http://127.0.0.1:5055`.
 ## Chạy tests
 
 ```bash
-python -m pytest          # 172 test, ~vài giây
+python -m pytest          # 172 test backend, ~vài giây
 ruff check .              # lint
 node -c frontend/app.js   # kiểm cú pháp JS
+npm install && npm test   # 21 test logic frontend (Vitest)
 ```
 
 > Trên Windows PowerShell, đặt `$env:PYTHONIOENCODING="utf-8"` trước khi chạy

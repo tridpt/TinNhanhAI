@@ -145,14 +145,7 @@ function fmtNumber(value, digits = 2) {
 function loadTopicOrder() {
   try {
     const raw = JSON.parse(localStorage.getItem(LS_KEYS.topicOrder) || "[]");
-    if (!Array.isArray(raw)) return [...DEFAULT_TOPIC_ORDER];
-    // Keep only known keys, then append any defaults missing from the saved
-    // order (e.g. topics added in a later app version).
-    const valid = raw.filter((k) => DEFAULT_TOPIC_ORDER.includes(k));
-    for (const k of DEFAULT_TOPIC_ORDER) {
-      if (!valid.includes(k)) valid.push(k);
-    }
-    return valid.length ? valid : [...DEFAULT_TOPIC_ORDER];
+    return TNLogic.normalizeTopicOrder(raw, DEFAULT_TOPIC_ORDER);
   } catch (e) {
     return [...DEFAULT_TOPIC_ORDER];
   }
@@ -228,12 +221,7 @@ function renderTopics(topics) {
 }
 
 function stripVnAccents(text) {
-  return (text || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .toLowerCase();
+  return TNLogic.stripVnAccents(text);
 }
 
 // Render quick "filter by source" chips above the feed. Built from whatever
@@ -1438,31 +1426,14 @@ async function shareArticle(title, url, btn) {
 }
 
 // Pick a few articles from the same topic to suggest at the end of the reader.
+// Delegates to TNLogic.pickRelated (unit-tested) after gathering the feeds.
 function findRelatedArticles(currentUrl, topicKey, limit = 5) {
-  const pool = [];
-  const seen = new Set([currentUrl]);
-
-  const addFrom = (topic) => {
-    if (!topic) return;
-    for (const item of topic.items || []) {
-      if (!item || !item.url || seen.has(item.url)) continue;
-      seen.add(item.url);
-      pool.push(item);
-    }
-  };
-
-  // Prefer the same topic, then fall back to the "all" feed for variety.
-  const map = state.dashboard && state.dashboard.topicMap;
-  if (topicKey && topicKey !== "all" && map && map[topicKey]) {
-    addFrom(map[topicKey]);
-  }
-  if (state.dashboard && state.dashboard.topics && state.dashboard.topics[0]) {
-    addFrom(state.dashboard.topics[0]);
-  }
-  if (map) {
-    for (const topic of Object.values(map)) addFrom(topic);
-  }
-  return pool.slice(0, limit);
+  const map = (state.dashboard && state.dashboard.topicMap) || {};
+  const allItems =
+    (state.dashboard && state.dashboard.topics && state.dashboard.topics[0]
+      ? state.dashboard.topics[0].items
+      : []) || [];
+  return TNLogic.pickRelated(currentUrl, topicKey, { topicMap: map, allItems }, limit);
 }
 
 function renderRelatedNews(modal, currentUrl, topicKey) {
@@ -2794,19 +2765,11 @@ function refreshBookmarksButton() {
 // the reader, so the queue stays a fresh "to read" list rather than an archive.
 
 function loadReadLater() {
-  try {
-    const raw = localStorage.getItem(LS_KEYS.readLater);
-    if (!raw) return new Map();
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return new Map();
-    const map = new Map();
-    for (const entry of parsed.slice(0, READ_LATER_LIMIT)) {
-      if (entry && entry.url) map.set(entry.url, entry);
-    }
-    return map;
-  } catch (error) {
-    return new Map();
-  }
+  // Delegates to TNLogic.parseStoredEntries (unit-tested).
+  return TNLogic.parseStoredEntries(
+    localStorage.getItem(LS_KEYS.readLater),
+    READ_LATER_LIMIT,
+  );
 }
 
 function saveReadLater() {
