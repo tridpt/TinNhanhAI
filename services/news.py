@@ -3,6 +3,7 @@ from __future__ import annotations
 import calendar
 import html
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
@@ -56,7 +57,7 @@ def _time_label(dt: datetime | None) -> str:
 
 
 def _fetch_feed(url: str) -> list[dict[str, Any]]:
-    response = requests.get(url, headers=USER_AGENT, timeout=20)
+    response = requests.get(url, headers=USER_AGENT, timeout=10)
     response.raise_for_status()
     feed = feedparser.parse(response.content)
     items: list[dict[str, Any]] = []
@@ -137,18 +138,35 @@ def _dedupe_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return deduped
 
 
+def _fetch_source_items(topic_key: str, source: dict[str, str], limit: int = 15) -> list[dict[str, Any]]:
+    """Fetch one feed and tag each item with its topic/source. Never raises."""
+
+    try:
+        fetched = _fetch_feed(source["url"])
+    except Exception:
+        return []
+    out: list[dict[str, Any]] = []
+    for item in fetched[:limit]:
+        item = dict(item)
+        item["source"] = source["name"]
+        item["topic"] = topic_key
+        out.append(item)
+    return out
+
+
 def _collect_topic_items(topic_key: str, limit: int = 15) -> list[dict[str, Any]]:
+    sources = _topic_sources(topic_key)
+    if not sources:
+        return []
+
+    # Fetch every source concurrently — feeds are independent network calls,
+    # so doing them serially made the dashboard wait on the sum of all latencies
+    # (and any slow/timeout feed). A bounded thread pool keeps it to roughly the
+    # slowest single feed instead.
     items: list[dict[str, Any]] = []
-    for source in _topic_sources(topic_key):
-        try:
-            fetched = _fetch_feed(source["url"])
-        except Exception:
-            continue
-        for item in fetched[:limit]:
-            item = dict(item)
-            item["source"] = source["name"]
-            item["topic"] = topic_key
-            items.append(item)
+    with ThreadPoolExecutor(max_workers=min(8, len(sources))) as pool:
+        for batch in pool.map(lambda src: _fetch_source_items(topic_key, src, limit), sources):
+            items.extend(batch)
     return _dedupe_items(items)
 
 
@@ -234,6 +252,54 @@ def get_topic_payload(topic_key: str, *, force: bool = False, offset: int = 0, l
     }
 
 
+def _refresh_dashboard_topics(force: bool) -> None:
+    """Fetch every topic's feeds in a single shared thread pool, then store
+    them (including the unified ``all`` bucket).
+
+    Two layers of waste used to dominate cold refreshes:
+
+    1. The ``all`` branch re-fetched every per-topic feed a second time.
+    2. Topics were refreshed serially, so total time was the *sum* of each
+       topic's fetch — ~50s across 10 topics.
+
+    Here we flatten every (topic, source) pair that still needs a refresh into
+    one pool, so wall time is roughly the slowest single feed. Items are then
+    grouped back per topic, stored, and reused to build ``all`` — each feed is
+    hit at most once.
+    """
+
+    pending: list[tuple[str, dict[str, str]]] = []
+    for key in config.NEWS_TOPIC_ORDER:
+        if key == "all":
+            continue
+        topic_cache_key = f"news-topic-fetched:{key}"
+        if not force and CACHE.get(topic_cache_key):
+            continue
+        for source in _topic_sources(key):
+            pending.append((key, source))
+
+    if not pending:
+        return
+
+    by_topic: dict[str, list[dict[str, Any]]] = {}
+    with ThreadPoolExecutor(max_workers=min(16, len(pending))) as pool:
+        batches = pool.map(lambda pair: _fetch_source_items(pair[0], pair[1]), pending)
+        for (topic_key, _source), batch in zip(pending, batches, strict=False):
+            by_topic.setdefault(topic_key, []).extend(batch)
+
+    collected: list[dict[str, Any]] = []
+    for key, raw_items in by_topic.items():
+        deduped = _dedupe_items(raw_items)
+        news_store.upsert_articles(key, deduped)
+        collected.extend(deduped)
+        CACHE.set(f"news-topic-fetched:{key}", True, config.NEWS_REFRESH_SECONDS)
+
+    all_cache_key = "news-topic-fetched:all"
+    if collected and (force or not CACHE.get(all_cache_key)):
+        news_store.upsert_articles("all", _dedupe_items(collected))
+        CACHE.set(all_cache_key, True, config.NEWS_REFRESH_SECONDS)
+
+
 def get_dashboard_payload(*, force: bool = False) -> dict[str, Any]:
     cache_key = "dashboard"
     if not force:
@@ -241,7 +307,24 @@ def get_dashboard_payload(*, force: bool = False) -> dict[str, Any]:
         if cached:
             return cached
 
-    topics = [get_topic_payload(topic_key, force=force) for topic_key in config.NEWS_TOPIC_ORDER]
+    # The five data sources (news RSS, prices, crypto, stocks, weather) are
+    # independent network calls. Running them serially made the cold refresh
+    # take the *sum* of their latencies (~50s). Launch them together so the
+    # wall time is roughly the slowest single source instead.
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        news_future = pool.submit(_refresh_dashboard_topics, force)
+        prices_future = pool.submit(_safe_payload, get_prices_payload, force=force)
+        crypto_future = pool.submit(_safe_payload, get_crypto_payload, force=force)
+        stocks_future = pool.submit(_safe_payload, get_stocks_payload, force=force)
+        weather_future = pool.submit(_safe_payload, get_weather_payload, force=force)
+        news_future.result()  # ensure feeds are stored before reading them back
+        prices_payload = prices_future.result()
+        crypto_payload = crypto_future.result()
+        stocks_payload = stocks_future.result()
+        weather_payload = weather_future.result()
+
+    # Feeds are already stored, so read each topic straight from SQLite.
+    topics = [get_topic_payload(topic_key, force=False) for topic_key in config.NEWS_TOPIC_ORDER]
     total_items = sum(len(topic["items"]) for topic in topics)
     source_count = sum(topic["source_count"] for topic in topics if topic["key"] != "all")
     top_lines = []
@@ -278,10 +361,10 @@ Dữ liệu:
             "source_count": source_count,
         },
         "topics": topics,
-        "prices": get_prices_payload(force=force),
-        "crypto": _safe_payload(get_crypto_payload, force=force),
-        "stocks": _safe_payload(get_stocks_payload, force=force),
-        "weather": _safe_payload(get_weather_payload, force=force),
+        "prices": prices_payload,
+        "crypto": crypto_payload,
+        "stocks": stocks_payload,
+        "weather": weather_payload,
     }
     CACHE.set(cache_key, payload, config.DASHBOARD_REFRESH_SECONDS)
     return payload
