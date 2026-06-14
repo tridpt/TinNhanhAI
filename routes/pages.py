@@ -58,6 +58,7 @@ def health():
     elif provider == "openai":
         model = config.OPENAI_MODEL
 
+    from services.cache import TTLCache
     from services.price_alert import watcher_status as price_watcher_status
     from services.telegram_alert import watcher_status as telegram_watcher_status
 
@@ -72,5 +73,6 @@ def health():
                 "telegram": telegram_watcher_status(),
                 "price_alert": price_watcher_status(),
             },
+            "cache": TTLCache.stats(),
         }
     )

@@ -83,7 +83,7 @@ services/               # Business logic (không phụ thuộc Flask)
 frontend/               # SPA tĩnh (vanilla JS, không build step)
   index.html, app.js, styles.css, sw.js, manifest.webmanifest
 data/                   # SQLite: news.db, history.db, summaries.db (gitignored)
-tests/                  # pytest (158 test)
+tests/                  # pytest (172 test)
 ```
 
 Dữ liệu chảy: `routes/*` (mỏng, parse request) → `services/*` (logic + cache) → JSON.
@@ -107,7 +107,7 @@ Mở `http://127.0.0.1:5055`.
 ## Chạy tests
 
 ```bash
-python -m pytest          # 158 test, ~vài giây
+python -m pytest          # 172 test, ~vài giây
 ruff check .              # lint
 node -c frontend/app.js   # kiểm cú pháp JS
 ```

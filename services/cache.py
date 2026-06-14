@@ -29,11 +29,34 @@ class TTLCache:
     _shared_disk: _DiskCache | None = None
     _shared_lock = threading.Lock()
 
+    # Process-wide hit/miss counters (across all namespaces) for observability.
+    _stats_lock = threading.Lock()
+    _stats: dict[str, int] = {"hits": 0, "misses": 0}
+
     def __init__(self, *, namespace: str = "default", persist: bool = True) -> None:
         self._lock = threading.RLock()
         self._namespace = namespace
         self._memory: dict[str, CacheEntry] = {}
         self._disk = self._open_disk() if persist else None
+
+    @classmethod
+    def _record(cls, hit: bool) -> None:
+        with cls._stats_lock:
+            cls._stats["hits" if hit else "misses"] += 1
+
+    @classmethod
+    def stats(cls) -> dict[str, Any]:
+        """Snapshot of cache hit/miss counts + hit-rate, for /api/health."""
+
+        with cls._stats_lock:
+            hits = cls._stats["hits"]
+            misses = cls._stats["misses"]
+        total = hits + misses
+        return {
+            "hits": hits,
+            "misses": misses,
+            "hit_rate": round(hits / total, 3) if total else 0.0,
+        }
 
     @classmethod
     def _open_disk(cls) -> _DiskCache | None:
@@ -55,6 +78,7 @@ class TTLCache:
             entry = self._memory.get(full_key)
             if entry is not None:
                 if entry.expires_at is None or time.time() < entry.expires_at:
+                    self._record(hit=True)
                     return entry.value
                 self._memory.pop(full_key, None)
 
@@ -67,7 +91,9 @@ class TTLCache:
                 # Repopulate memory layer for fast subsequent reads.
                 with self._lock:
                     self._memory[full_key] = CacheEntry(value=value, expires_at=None)
+                self._record(hit=True)
                 return value
+        self._record(hit=False)
         return default
 
     def set(self, key: str, value: Any, ttl_seconds: int | None = None) -> None:

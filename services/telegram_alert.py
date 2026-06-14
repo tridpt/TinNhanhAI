@@ -24,6 +24,7 @@ import requests
 
 import config
 
+from .logbook import log_event
 from .news import _collect_topic_items  # type: ignore[attr-defined]
 
 STATE_DIR = Path(__file__).resolve().parent.parent / "state"
@@ -131,16 +132,16 @@ def scan_once(*, dry_run: bool = False) -> list[dict]:
 
 def run_forever() -> None:
     interval = max(60, int(os.getenv("TELEGRAM_POLL_SECONDS", "600")))
-    print(f"[telegram] watcher started, interval={interval}s")
+    log_event("telegram", "watcher started", interval=interval)
     while True:
         try:
             hits = scan_once()
             _record_scan(sent=len(hits))
             if hits:
-                print(f"[telegram] sent {len(hits)} alert(s)")
+                log_event("telegram", "sent alerts", count=len(hits))
         except Exception as exc:  # pragma: no cover - defensive
             _record_scan(error=str(exc))
-            print(f"[telegram] scan failed: {exc}")
+            log_event("telegram", "scan failed", level="error", error=str(exc))
         time.sleep(interval)
 
 

@@ -13,6 +13,7 @@ from routes.ai import ask_limiter
 from services import get_dashboard_payload
 from services.ai import ai_enabled
 from services.compression import init_compression
+from services.logbook import log_event
 from services.telegram_alert import start_in_background as start_telegram_watcher
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -60,11 +61,11 @@ def _start_prewarm() -> None:
 
     def _warm():
         try:
-            print("[prewarm] fetching dashboard...")
+            log_event("prewarm", "fetching dashboard")
             get_dashboard_payload(force=True)
-            print("[prewarm] done")
+            log_event("prewarm", "done")
         except Exception as exc:
-            print(f"[prewarm] failed: {exc}")
+            log_event("prewarm", "failed", level="error", error=str(exc))
 
     thread = threading.Thread(target=_warm, name="prewarm", daemon=True)
     thread.start()
@@ -89,11 +90,11 @@ def _run_prod(port: int) -> None:
 if __name__ == "__main__":
     target_port = _pick_port(config.PORT)
     if start_telegram_watcher():
-        print("[telegram] alert watcher enabled")
+        log_event("telegram", "alert watcher enabled")
     from services.price_alert import start_in_background as start_price_watcher
 
     if start_price_watcher():
-        print("[price-alert] watcher enabled")
+        log_event("price-alert", "watcher enabled")
     # Pre-warm caches in background so the first user request is instant.
     _start_prewarm()
     # Server choice is opt-in via TINNHANH_PROD only. DEBUG no longer forces

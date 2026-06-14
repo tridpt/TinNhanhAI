@@ -13,6 +13,7 @@ import time
 from typing import Any
 
 from . import alerts as alert_store
+from .logbook import log_event
 
 
 def collect_current_prices() -> dict[str, dict[str, Any]]:
@@ -120,16 +121,16 @@ def scan_once(*, notify: bool = True) -> list[dict[str, Any]]:
 
 def run_forever() -> None:
     interval = max(60, int(os.getenv("PRICE_ALERT_POLL_SECONDS", "300")))
-    print(f"[price-alert] watcher started, interval={interval}s")
+    log_event("price-alert", "watcher started", interval=interval)
     while True:
         try:
             hits = scan_once()
             _record_scan(sent=len(hits))
             if hits:
-                print(f"[price-alert] triggered {len(hits)} alert(s)")
+                log_event("price-alert", "triggered alerts", count=len(hits))
         except Exception as exc:  # pragma: no cover - defensive
             _record_scan(error=str(exc))
-            print(f"[price-alert] scan failed: {exc}")
+            log_event("price-alert", "scan failed", level="error", error=str(exc))
         time.sleep(interval)
 
 
