@@ -2862,6 +2862,11 @@ html[data-theme="dark"] .chart-backdrop {
 
 /* Reader AI summary */
 .reader-summary {
+  flex-shrink: 0;
+  /* Cap the summary height and let it scroll internally so a long summary
+   * never steals vertical space from the article body below it. */
+  max-height: 34vh;
+  overflow-y: auto;
   margin: 0 24px;
   padding: 14px 16px;
   border: 1px solid rgba(15, 118, 110, 0.3);
