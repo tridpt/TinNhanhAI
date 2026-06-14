@@ -124,6 +124,11 @@
             <span>Tin đã lưu</span>
             <span id="bookmarks-count" class="bookmarks-count">0</span>
           </button>
+          <button id="readlater-toggle" class="chip" type="button" title="Hiện chỉ tin để đọc sau (tự xóa khi đã đọc)" aria-pressed="false">
+            <i data-lucide="clock"></i>
+            <span>Đọc sau</span>
+            <span id="readlater-count" class="bookmarks-count">0</span>
+          </button>
           <button id="advanced-search-btn" class="chip" type="button" title="Tìm kiếm toàn bộ tin">
             <i data-lucide="search"></i>
             <span>Tìm nâng cao</span>
@@ -257,6 +262,9 @@
       <div class="news-card-head">
         <span class="source-pill"></span>
         <span class="time-pill"></span>
+        <button class="readlater-btn" type="button" title="Đọc sau" aria-label="Đọc sau">
+          <i data-lucide="clock"></i>
+        </button>
         <button class="bookmark-btn" type="button" title="Lưu tin này" aria-label="Lưu tin">
           <i data-lucide="bookmark"></i>
         </button>

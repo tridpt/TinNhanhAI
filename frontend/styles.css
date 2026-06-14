@@ -1039,6 +1039,72 @@ button.status-pill:hover {
   height: 15px;
 }
 
+/* Read-later button (clock) sits just left of the bookmark button. It takes
+   the auto margin so both action buttons group at the right edge. */
+.readlater-btn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+/* With read-later present, the bookmark no longer needs to claim the space. */
+.news-card-head .readlater-btn + .bookmark-btn {
+  margin-left: 6px;
+}
+
+.readlater-btn:hover {
+  color: var(--accent-3);
+  border-color: rgba(180, 83, 9, 0.4);
+}
+
+.readlater-btn.active {
+  color: var(--accent-3);
+  background: rgba(180, 83, 9, 0.08);
+  border-color: rgba(180, 83, 9, 0.4);
+}
+
+.readlater-btn.active i {
+  fill: var(--accent-3);
+}
+
+.readlater-btn i {
+  width: 15px;
+  height: 15px;
+}
+
+/* Topic tab drag-to-reorder feedback */
+.topic-tab[draggable="true"] {
+  cursor: grab;
+}
+
+.topic-tab.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.topic-tab.drag-over {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 2px rgba(15, 118, 110, 0.3);
+}
+
+html[data-theme="dark"] .readlater-btn:hover {
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
+html[data-theme="dark"] .readlater-btn.active {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
 #bookmarks-toggle.active {
   border-color: rgba(15, 118, 110, 0.4);
   color: var(--accent);

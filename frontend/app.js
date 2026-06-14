@@ -4,11 +4,13 @@ const state = {
   activeTopicData: null,
   newsFilter: "",
   showOnlyBookmarks: false,
+  showOnlyReadLater: false,
   loadingQuestion: false,
   aiEnabled: false,
   health: null,
   recentQueries: [],
   bookmarks: new Map(),
+  readLater: new Map(),
   knownUrls: new Set(),
   newItemCount: 0,
   autoRefreshTimerId: null,
@@ -21,7 +23,10 @@ const state = {
 
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
-const topicOrder = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao", "giai_tri", "suc_khoe", "giao_duc", "xe"];
+let topicOrder = ["all", "thoi_su", "kinh_te", "cong_nghe", "the_gioi", "the_thao", "giai_tri", "suc_khoe", "giao_duc", "xe"];
+// Pristine default order, used to validate/repair a saved order and to fall
+// back to when none is stored.
+const DEFAULT_TOPIC_ORDER = [...topicOrder];
 const topicMeta = {
   all: { label: "Tổng hợp", icon: "layout-grid" },
   thoi_su: { label: "Thời sự", icon: "newspaper" },
@@ -48,9 +53,12 @@ const LS_KEYS = {
   savedFilters: "tnai.savedfilters",
   readHistory: "tnai.readhistory",
   compactNews: "tnai.compactnews",
+  topicOrder: "tnai.topicorder",
+  readLater: "tnai.readlater",
 };
 const RECENT_QUERIES_LIMIT = 8;
 const BOOKMARK_LIMIT = 200;
+const READ_LATER_LIMIT = 200;
 
 const el = {
   healthPill: document.getElementById("health-pill"),
@@ -65,6 +73,8 @@ const el = {
   newsFilterStats: document.getElementById("news-filter-stats"),
   bookmarksToggle: document.getElementById("bookmarks-toggle"),
   bookmarksCount: document.getElementById("bookmarks-count"),
+  readLaterToggle: document.getElementById("readlater-toggle"),
+  readLaterCount: document.getElementById("readlater-count"),
   priceList: document.getElementById("price-list"),
   vnPriceList: document.getElementById("vn-price-list"),
   vnGoldCompare: document.getElementById("vn-gold-compare"),
@@ -130,6 +140,32 @@ function fmtNumber(value, digits = 2) {
   }).format(Number(value));
 }
 
+function loadTopicOrder() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_KEYS.topicOrder) || "[]");
+    if (!Array.isArray(raw)) return [...DEFAULT_TOPIC_ORDER];
+    // Keep only known keys, then append any defaults missing from the saved
+    // order (e.g. topics added in a later app version).
+    const valid = raw.filter((k) => DEFAULT_TOPIC_ORDER.includes(k));
+    for (const k of DEFAULT_TOPIC_ORDER) {
+      if (!valid.includes(k)) valid.push(k);
+    }
+    return valid.length ? valid : [...DEFAULT_TOPIC_ORDER];
+  } catch (e) {
+    return [...DEFAULT_TOPIC_ORDER];
+  }
+}
+
+function saveTopicOrder() {
+  try {
+    localStorage.setItem(LS_KEYS.topicOrder, JSON.stringify(topicOrder));
+  } catch (e) {
+    /* quota / private mode — order stays in memory only */
+  }
+}
+
+let _dragTopicKey = null;
+
 function renderTopics(topics) {
   el.topicTabs.innerHTML = "";
   const map = new Map(topics.map((topic) => [topic.key, topic]));
@@ -141,14 +177,51 @@ function renderTopics(topics) {
     btn.type = "button";
     btn.className = `topic-tab${state.activeTopic === key ? " active" : ""}`;
     btn.dataset.topic = key;
+    btn.draggable = true;
+    btn.title = "Kéo để sắp xếp lại thứ tự";
     btn.innerHTML = `<i data-lucide="${meta.icon}"></i><span>${meta.label}</span>`;
     btn.addEventListener("click", () => {
       state.activeTopic = key;
       renderTopics(topics);
       renderNews(map.get(key));
     });
+
+    // --- Drag-to-reorder (persisted to localStorage) ---
+    btn.addEventListener("dragstart", (e) => {
+      _dragTopicKey = key;
+      btn.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+    });
+    btn.addEventListener("dragend", () => {
+      _dragTopicKey = null;
+      btn.classList.remove("dragging");
+      el.topicTabs.querySelectorAll(".topic-tab").forEach((t) => t.classList.remove("drag-over"));
+    });
+    btn.addEventListener("dragover", (e) => {
+      if (_dragTopicKey && _dragTopicKey !== key) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        btn.classList.add("drag-over");
+      }
+    });
+    btn.addEventListener("dragleave", () => btn.classList.remove("drag-over"));
+    btn.addEventListener("drop", (e) => {
+      e.preventDefault();
+      btn.classList.remove("drag-over");
+      if (!_dragTopicKey || _dragTopicKey === key) return;
+      const from = topicOrder.indexOf(_dragTopicKey);
+      const to = topicOrder.indexOf(key);
+      if (from < 0 || to < 0) return;
+      topicOrder.splice(from, 1);
+      topicOrder.splice(to, 0, _dragTopicKey);
+      saveTopicOrder();
+      renderTopics(topics);
+    });
+
     el.topicTabs.appendChild(btn);
   });
+
+  lucide.createIcons();
 }
 
 function stripVnAccents(text) {
@@ -172,6 +245,7 @@ function renderNews(topic) {
   const filterRaw = (state.newsFilter || "").trim();
   const filter = stripVnAccents(filterRaw);
   const onlyBookmarked = state.showOnlyBookmarks;
+  const onlyReadLater = state.showOnlyReadLater;
 
   let sourceItems = items;
   if (onlyBookmarked) {
@@ -189,6 +263,9 @@ function renderNews(topic) {
         published_label: saved.published_label || (fromFeed && fromFeed.published_label) || "",
       };
     });
+  } else if (onlyReadLater) {
+    // Show the "read later" queue (newest-added first).
+    sourceItems = [...state.readLater.values()].reverse();
   }
 
   const filtered = sourceItems.filter((item) => {
@@ -201,23 +278,29 @@ function renderNews(topic) {
 
   if (el.newsFilterStats) {
     const parts = [];
-    if (filterRaw || onlyBookmarked) {
+    if (filterRaw || onlyBookmarked || onlyReadLater) {
       parts.push(`${filtered.length}/${items.length} bài`);
     } else if (items.length) {
       parts.push(`${items.length} bài`);
     }
     if (onlyBookmarked) parts.push("đã lưu");
+    if (onlyReadLater) parts.push("đọc sau");
     el.newsFilterStats.textContent = parts.join(" · ");
   }
 
-  if (!items.length) {
+  if (!items.length && !onlyReadLater) {
     el.newsList.innerHTML = `<div class="empty-state">Chưa có bài mới cho chủ đề này.</div>`;
     return;
   }
   if (!filtered.length) {
-    const msg = onlyBookmarked
-      ? "Chưa có tin nào được lưu trong chủ đề này."
-      : `Không có bài nào khớp từ khóa "${filterRaw}".`;
+    let msg;
+    if (onlyReadLater) {
+      msg = "Chưa có bài nào trong danh sách đọc sau. Bấm biểu tượng đồng hồ trên mỗi tin để thêm.";
+    } else if (onlyBookmarked) {
+      msg = "Chưa có tin nào được lưu trong chủ đề này.";
+    } else {
+      msg = `Không có bài nào khớp từ khóa "${filterRaw}".`;
+    }
     el.newsList.innerHTML = `<div class="empty-state">${msg}</div>`;
     return;
   }
@@ -254,6 +337,19 @@ function renderNews(topic) {
       bookmarkBtn.addEventListener("click", (event) => {
         event.preventDefault();
         toggleBookmark(item);
+      });
+    }
+
+    const readLaterBtn = node.querySelector(".readlater-btn");
+    if (readLaterBtn) {
+      const queued = state.readLater.has(item.url);
+      readLaterBtn.classList.toggle("active", queued);
+      readLaterBtn.title = queued ? "Bỏ khỏi đọc sau" : "Đọc sau (tự xoá khi đã đọc)";
+      readLaterBtn.setAttribute("aria-pressed", String(queued));
+      readLaterBtn.dataset.url = item.url || "";
+      readLaterBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        toggleReadLater(item);
       });
     }
     el.newsList.appendChild(node);
@@ -1204,6 +1300,8 @@ async function openReader(url, fallbackTitle, meta = {}) {
     source: meta.source || "",
     topic: meta.topic || "",
   });
+  // Opening an article counts as "read" — drop it from the read-later queue.
+  markReadLaterRead(url);
   showReaderModal(fallbackTitle || "Đang tải...", null, url);
 
   try {
@@ -2528,6 +2626,76 @@ function refreshBookmarksButton() {
   }
 }
 
+// --- Read later ("đọc sau") --------------------------------------------------
+// Like bookmarks, but transient: an item is auto-removed once it's opened in
+// the reader, so the queue stays a fresh "to read" list rather than an archive.
+
+function loadReadLater() {
+  try {
+    const raw = localStorage.getItem(LS_KEYS.readLater);
+    if (!raw) return new Map();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Map();
+    const map = new Map();
+    for (const entry of parsed.slice(0, READ_LATER_LIMIT)) {
+      if (entry && entry.url) map.set(entry.url, entry);
+    }
+    return map;
+  } catch (error) {
+    return new Map();
+  }
+}
+
+function saveReadLater() {
+  try {
+    const entries = [...state.readLater.values()].slice(-READ_LATER_LIMIT);
+    localStorage.setItem(LS_KEYS.readLater, JSON.stringify(entries));
+  } catch (error) {
+    /* quota / private mode */
+  }
+}
+
+function toggleReadLater(item) {
+  if (!item || !item.url) return;
+  if (state.readLater.has(item.url)) {
+    state.readLater.delete(item.url);
+  } else {
+    state.readLater.set(item.url, {
+      url: item.url || "",
+      title: item.title || item.url || "Bài đọc sau",
+      summary: item.summary || "",
+      source: item.source || "",
+      thumbnail: item.thumbnail || "",
+      published_label: item.published_label || "",
+      published_at: item.published_at || "",
+    });
+  }
+  saveReadLater();
+  refreshReadLaterButton();
+  renderNews(state.activeTopicData);
+}
+
+function markReadLaterRead(url) {
+  // Auto-remove from the queue once the article has been opened.
+  if (!url || !state.readLater.has(url)) return;
+  state.readLater.delete(url);
+  saveReadLater();
+  refreshReadLaterButton();
+  if (state.showOnlyReadLater && state.activeTopicData) {
+    renderNews(state.activeTopicData);
+  }
+}
+
+function refreshReadLaterButton() {
+  if (!el.readLaterToggle) return;
+  el.readLaterToggle.classList.toggle("active", state.showOnlyReadLater);
+  el.readLaterToggle.setAttribute("aria-pressed", String(state.showOnlyReadLater));
+  if (el.readLaterCount) {
+    el.readLaterCount.textContent = String(state.readLater.size);
+    el.readLaterCount.style.display = state.readLater.size ? "" : "none";
+  }
+}
+
 // --- VN gold compare chart ---------------------------------------------------
 
 const COMPARE_PALETTE = ["#0f766e", "#2563eb", "#b45309", "#7c3aed", "#15803d", "#db2777"];
@@ -2713,6 +2881,8 @@ function exportUserData() {
     },
     saved_filters: safe(LS_KEYS.savedFilters) || [],
     bookmarks: safe(LS_KEYS.bookmarks) || [],
+    read_later: safe(LS_KEYS.readLater) || [],
+    topic_order: safe(LS_KEYS.topicOrder) || [],
     theme: localStorage.getItem(LS_KEYS.theme) || "light",
   };
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
@@ -2759,6 +2929,8 @@ function applyImportedData(data) {
   }
   if (Array.isArray(data.saved_filters)) setJson(LS_KEYS.savedFilters, data.saved_filters);
   if (Array.isArray(data.bookmarks)) setJson(LS_KEYS.bookmarks, data.bookmarks);
+  if (Array.isArray(data.read_later)) setJson(LS_KEYS.readLater, data.read_later);
+  if (Array.isArray(data.topic_order)) setJson(LS_KEYS.topicOrder, data.topic_order);
   if (typeof data.theme === "string") {
     localStorage.setItem(LS_KEYS.theme, data.theme);
     applyTheme(data.theme);
@@ -2766,6 +2938,18 @@ function applyImportedData(data) {
   // Refresh the views that read from localStorage.
   state.bookmarks = loadBookmarks();
   refreshBookmarksButton();
+  state.readLater = loadReadLater();
+  refreshReadLaterButton();
+  topicOrder = loadTopicOrder();
+  if (state.dashboard && state.dashboard.topicMap) {
+    const allTopics = topicOrder.map((key) => {
+      if (key === "all" && state.dashboard.topics && state.dashboard.topics[0]) {
+        return state.dashboard.topics[0];
+      }
+      return state.dashboard.topicMap[key] || { key, label: topicMeta[key]?.label || key, items: [] };
+    }).filter(Boolean);
+    renderTopics(allTopics);
+  }
   if (state.activeTopicData) renderNews(state.activeTopicData);
   fetchCustomStocks();
   fetchCustomCrypto();
@@ -3895,6 +4079,17 @@ function bindEvents() {
   if (el.bookmarksToggle) {
     el.bookmarksToggle.addEventListener("click", () => {
       state.showOnlyBookmarks = !state.showOnlyBookmarks;
+      if (state.showOnlyBookmarks) state.showOnlyReadLater = false;
+      refreshBookmarksButton();
+      refreshReadLaterButton();
+      renderNews(state.activeTopicData);
+    });
+  }
+  if (el.readLaterToggle) {
+    el.readLaterToggle.addEventListener("click", () => {
+      state.showOnlyReadLater = !state.showOnlyReadLater;
+      if (state.showOnlyReadLater) state.showOnlyBookmarks = false;
+      refreshReadLaterButton();
       refreshBookmarksButton();
       renderNews(state.activeTopicData);
     });
@@ -4046,8 +4241,11 @@ async function init() {
   migrateCustomCryptoSymbols();
   state.recentQueries = loadRecentQueries();
   renderRecentChips();
+  topicOrder = loadTopicOrder();
   state.bookmarks = loadBookmarks();
   refreshBookmarksButton();
+  state.readLater = loadReadLater();
+  refreshReadLaterButton();
   bindEvents();
   lucide.createIcons();
   await loadHealth();
