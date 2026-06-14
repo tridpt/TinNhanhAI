@@ -1475,7 +1475,7 @@ function showReaderModal(title, contentHtmlParts, url, wordCount) {
         }
         summaryDiv.innerHTML = `
           <div class="reader-summary-head"><i data-lucide="sparkles"></i> Tóm tắt AI${data.cached ? ' <span class="reader-summary-tag">đã lưu</span>' : ""}</div>
-          <pre class="reader-summary-text">${escapeHtml(data.summary)}</pre>
+          <div class="reader-summary-text">${renderLightMarkdown(data.summary)}</div>
         `;
         lucide.createIcons();
       } catch (e) {
