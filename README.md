@@ -11,6 +11,16 @@ biểu đồ, và trợ lý AI — chạy bằng Flask, đóng gói thành PWA c
 
 🔗 **Demo:** https://tinnhanh-ai.fly.dev
 
+## Ảnh chụp
+
+| Dashboard (sáng) | Dashboard (tối) |
+| --- | --- |
+| ![Dashboard sáng](docs/screenshots/dashboard-desktop.png) | ![Dashboard tối](docs/screenshots/dashboard-desktop-dark.png) |
+
+<p align="center">
+  <img src="docs/screenshots/dashboard-mobile.png" alt="Giao diện mobile" width="320">
+</p>
+
 ---
 
 ## Tính năng
