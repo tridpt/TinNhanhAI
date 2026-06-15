@@ -8,5 +8,5 @@ ddgs==9.14.2
 # to the local .cache/ dir, which is not exposed here. Bump when a fix ships.
 diskcache==5.6.3
 waitress==3.0.2
-pytest==9.0.3
+pytest==9.1.0
 pytest-mock==3.15.1
