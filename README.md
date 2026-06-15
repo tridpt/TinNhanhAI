@@ -1,5 +1,11 @@
 # TinNhanh AI
 
+[![CI](https://github.com/tridpt/TinNhanhAI/actions/workflows/ci.yml/badge.svg)](https://github.com/tridpt/TinNhanhAI/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-3.1-000000.svg)](https://flask.palletsprojects.com/)
+[![PWA](https://img.shields.io/badge/PWA-installable-5a0fc8.svg)](https://developer.mozilla.org/docs/Web/Progressive_web_apps)
+
 Web app tin tức & thị trường tiếng Việt: tổng hợp tin nóng, bảng giá thời gian thực,
 biểu đồ, và trợ lý AI — chạy bằng Flask, đóng gói thành PWA cài được trên điện thoại.
 
