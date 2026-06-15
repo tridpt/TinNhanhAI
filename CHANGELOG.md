@@ -5,7 +5,7 @@ Mọi thay đổi đáng chú ý của TinNhanh AI được ghi lại ở đây.
 Định dạng theo [Keep a Changelog](https://keepachangelog.com/vi/1.1.0/),
 dự án dùng [Semantic Versioning](https://semver.org/lang/vi/).
 
-## [Chưa phát hành]
+## [1.0.0] - 2026-06-14
 
 ### Đã thêm
 - Tóm tắt AI trong trình đọc có thể thu gọn về một dòng.
