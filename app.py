@@ -40,6 +40,19 @@ def _pick_port(start_port: int) -> int:
     return start_port
 
 
+def _resolve_port(use_prod: bool) -> int:
+    """Decide which port to bind.
+
+    Dev hunts for a free port starting at ``config.PORT`` so repeated restarts
+    stay convenient. Production binds ``config.PORT`` exactly: the platform
+    (Docker ``EXPOSE``, the Fly proxy target and the ``/api/health`` check) all
+    assume it, so silently drifting to another port would leave the app
+    "running" while every health check fails. Let the bind error surface.
+    """
+
+    return config.PORT if use_prod else _pick_port(config.PORT)
+
+
 def _print_banner(port: int, mode: str) -> None:
     print("=" * 56)
     print(config.APP_NAME)
@@ -94,12 +107,7 @@ def _run_prod(port: int) -> None:
 
 if __name__ == "__main__":
     use_prod = os.getenv("TINNHANH_PROD", "").lower() in {"1", "true", "yes"}
-    # In production the port is fixed by the platform: Docker EXPOSE, the Fly
-    # proxy target and the /api/health check all assume config.PORT. Drifting to
-    # another port would leave the app "running" while every health check fails,
-    # so bind exactly config.PORT and let the bind error surface. Only dev hunts
-    # for a free port to stay convenient across restarts.
-    target_port = config.PORT if use_prod else _pick_port(config.PORT)
+    target_port = _resolve_port(use_prod)
     if start_telegram_watcher():
         log_event("telegram", "alert watcher enabled")
     from services.price_alert import start_in_background as start_price_watcher
