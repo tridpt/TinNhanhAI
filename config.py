@@ -30,6 +30,15 @@ PORT = int(os.getenv("PORT", "5055"))
 # Opt in explicitly with ``DEBUG=1`` for local development.
 DEBUG = os.getenv("DEBUG", "0").lower() not in {"0", "false", "no"}
 
+# Writable directories. Defaults keep the project-local layout used in dev and
+# tests, but each can be redirected via env so a container can point them at a
+# single persistent volume (e.g. Fly mounts /app/data). Keeping the cache and
+# Telegram/price-alert state on the volume means they survive machine
+# replacement instead of resetting on every redeploy.
+DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR / "data")))
+CACHE_DIR = Path(os.getenv("CACHE_DIR", str(BASE_DIR / ".cache")))
+STATE_DIR = Path(os.getenv("STATE_DIR", str(BASE_DIR / "state")))
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
 

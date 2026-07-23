@@ -1,0 +1,7 @@
+# Development / CI only — not installed in the production Docker image.
+# Install with: pip install -r requirements.txt -r requirements-dev.txt
+-r requirements.txt
+
+pytest==9.0.3
+pytest-mock==3.15.1
+ruff==0.15.1

@@ -79,16 +79,27 @@ def _run_dev(port: int) -> None:
 def _run_prod(port: int) -> None:
     try:
         from waitress import serve
-    except ImportError:
-        print("waitress is not installed; falling back to Flask dev server.")
-        _run_dev(port)
-        return
+    except ImportError as exc:
+        # Fail loudly instead of silently downgrading to the Flask dev server:
+        # in production that would swap in a single-threaded server (and the
+        # debugger if DEBUG were ever set) without anyone noticing.
+        raise RuntimeError(
+            "TINNHANH_PROD is set but waitress is not installed. "
+            "Install it with `pip install waitress`, or unset TINNHANH_PROD "
+            "to run the Flask dev server."
+        ) from exc
     _print_banner(port, "prod (waitress)")
     serve(app, host=config.HOST, port=port, threads=8)
 
 
 if __name__ == "__main__":
-    target_port = _pick_port(config.PORT)
+    use_prod = os.getenv("TINNHANH_PROD", "").lower() in {"1", "true", "yes"}
+    # In production the port is fixed by the platform: Docker EXPOSE, the Fly
+    # proxy target and the /api/health check all assume config.PORT. Drifting to
+    # another port would leave the app "running" while every health check fails,
+    # so bind exactly config.PORT and let the bind error surface. Only dev hunts
+    # for a free port to stay convenient across restarts.
+    target_port = config.PORT if use_prod else _pick_port(config.PORT)
     if start_telegram_watcher():
         log_event("telegram", "alert watcher enabled")
     from services.price_alert import start_in_background as start_price_watcher
@@ -100,7 +111,6 @@ if __name__ == "__main__":
     # Server choice is opt-in via TINNHANH_PROD only. DEBUG no longer forces
     # prod mode — it solely controls the (off-by-default) Werkzeug debugger, so
     # a plain ``python app.py`` still gives the Flask dev server with reload.
-    use_prod = os.getenv("TINNHANH_PROD", "").lower() in {"1", "true", "yes"}
     if use_prod:
         _run_prod(target_port)
     else:

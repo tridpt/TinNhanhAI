@@ -122,7 +122,10 @@ Mở `http://127.0.0.1:5055`.
 
 ## Chạy tests
 
+Công cụ test/lint nằm ở `requirements-dev.txt` (không cài vào Docker image):
+
 ```bash
+pip install -r requirements-dev.txt   # kéo theo cả requirements.txt
 python -m pytest          # 172 test backend, ~vài giây
 ruff check .              # lint
 node -c frontend/app.js   # kiểm cú pháp JS

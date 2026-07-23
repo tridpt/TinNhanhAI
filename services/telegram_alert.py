@@ -18,7 +18,6 @@ import threading
 import time
 import unicodedata
 from collections.abc import Iterable
-from pathlib import Path
 
 import requests
 
@@ -27,7 +26,7 @@ import config
 from .logbook import log_event
 from .news import _collect_topic_items  # type: ignore[attr-defined]
 
-STATE_DIR = Path(__file__).resolve().parent.parent / "state"
+STATE_DIR = config.STATE_DIR
 STATE_FILE = STATE_DIR / "telegram_seen.json"
 MAX_REMEMBERED = 500
 

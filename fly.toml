@@ -23,6 +23,11 @@ kill_timeout = "10s"
   TINNHANH_PROD = "1"
   DEBUG = "0"
   ASK_RATE_LIMIT_PER_MINUTE = "30"
+  # Keep cache + Telegram/price-alert state on the mounted volume (below) so
+  # they survive machine replacement instead of resetting on every redeploy.
+  DATA_DIR = "/app/data"
+  CACHE_DIR = "/app/data/.cache"
+  STATE_DIR = "/app/data/state"
 
 # Single HTTP service on port 8080 (Fly's edge proxy maps 443 → 8080).
 [http_service]

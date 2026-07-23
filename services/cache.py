@@ -4,8 +4,9 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
+
+import config
 
 try:
     from diskcache import Cache as _DiskCache
@@ -64,7 +65,7 @@ class TTLCache:
             return None
         with cls._shared_lock:
             if cls._shared_disk is None:
-                cache_dir = Path(__file__).resolve().parent.parent / ".cache"
+                cache_dir = config.CACHE_DIR
                 cache_dir.mkdir(parents=True, exist_ok=True)
                 cls._shared_disk = _DiskCache(str(cache_dir))
             return cls._shared_disk

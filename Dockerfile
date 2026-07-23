@@ -7,7 +7,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     TINNHANH_PROD=1 \
     DEBUG=0 \
     HOST=0.0.0.0 \
-    PORT=8080
+    PORT=8080 \
+    DATA_DIR=/app/data \
+    CACHE_DIR=/app/data/.cache \
+    STATE_DIR=/app/data/state
 
 WORKDIR /app
 
@@ -16,8 +19,9 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-# Cache, history DB, and Telegram state are written at runtime; mount a volume to persist.
-RUN mkdir -p /app/.cache /app/state /app/data
+# Cache, history DB, and Telegram state are all written under /app/data so a
+# single mounted volume persists everything across machine replacements.
+RUN mkdir -p /app/data/.cache /app/data/state
 
 EXPOSE 8080
 
