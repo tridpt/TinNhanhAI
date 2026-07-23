@@ -1,7 +1,7 @@
 Flask==3.1.3
 requests==2.34.2
 feedparser==6.0.12
-beautifulsoup4==4.13.3
+beautifulsoup4==4.15.0
 ddgs==9.14.2
 # diskcache 5.6.3 is the latest release. CVE-2025-69872 (pickle RCE) has no
 # fixed version yet; it only applies when an attacker already has write access
