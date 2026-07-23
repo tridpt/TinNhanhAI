@@ -24,8 +24,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install ruff
+          # requirements-dev.txt pulls in requirements.txt plus the test/lint
+          # tooling (pytest, pytest-mock, ruff) that is kept out of the prod image.
+          pip install -r requirements-dev.txt
 
       - name: Lint with ruff
         run: ruff check .
