@@ -12,7 +12,9 @@ import threading
 from pathlib import Path
 from typing import Any
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "news.db"
+from config import DATA_DIR
+
+DB_PATH = DATA_DIR / "news.db"
 MAX_ARTICLES_PER_TOPIC = 200
 
 _LOCK = threading.Lock()

@@ -17,7 +17,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "alerts.db"
+from config import DATA_DIR
+
+DB_PATH = DATA_DIR / "alerts.db"
+MAX_ACTIVE_ALERTS = 100
 
 _LOCK = threading.Lock()
 VALID_DIRECTIONS = {"above", "below"}
@@ -93,10 +96,13 @@ def add_alert(
     now = int(time.time())
     with _LOCK:
         conn = _open()
+        active_count = conn.execute("SELECT COUNT(*) FROM alerts WHERE active = 1").fetchone()[0]
+        if active_count >= MAX_ACTIVE_ALERTS:
+            return None
         cur = conn.execute(
             "INSERT INTO alerts(item_key, label, unit, direction, threshold, active, created_at)"
             " VALUES (?, ?, ?, ?, ?, 1, ?)",
-            (item_key, label or "", unit or "", direction, threshold, now),
+            (item_key[:64], (label or "")[:120], (unit or "")[:32], direction, threshold, now),
         )
         alert_id = cur.lastrowid
     return {

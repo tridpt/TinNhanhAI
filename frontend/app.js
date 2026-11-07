@@ -340,9 +340,9 @@ function renderNews(topic) {
     } else if (onlyBookmarked) {
       msg = "Chưa có tin nào được lưu trong chủ đề này.";
     } else if (state.sourceFilter) {
-      msg = `Không có bài nào từ nguồn "${escapeHtml(state.sourceFilter)}"` + (filterRaw ? ` khớp "${filterRaw}".` : ".");
+      msg = `Không có bài nào từ nguồn "${escapeHtml(state.sourceFilter)}"` + (filterRaw ? ` khớp "${escapeHtml(filterRaw)}".` : ".");
     } else {
-      msg = `Không có bài nào khớp từ khóa "${filterRaw}".`;
+      msg = `Không có bài nào khớp từ khóa "${escapeHtml(filterRaw)}".`;
     }
     el.newsList.innerHTML = `<div class="empty-state">${msg}</div>`;
     return;
@@ -748,6 +748,8 @@ function renderSparkline(container, history, options = {}) {
     return;
   }
 
+  const formatTick = options.formatTick || ((v) => v.toLocaleString("vi-VN"));
+
   // Filter out flat lines where all values are identical (no useful chart).
   // Exception: still show for items with very few points (will accumulate over time).
   const uniqueValues = new Set(points.map((p) => Number(p.value)));
@@ -790,7 +792,6 @@ function renderSparkline(container, history, options = {}) {
     ? `${firstTs.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })} → ${lastTs.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}`
     : "";
 
-  const formatTick = options.formatTick || ((v) => v.toLocaleString("vi-VN"));
   const minLabel = formatTick(min);
   const maxLabel = formatTick(max);
 

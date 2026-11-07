@@ -19,7 +19,9 @@ import threading
 import time
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "summaries.db"
+from config import DATA_DIR
+
+DB_PATH = DATA_DIR / "summaries.db"
 
 _LOCK = threading.Lock()
 _RETENTION_DAYS = 30

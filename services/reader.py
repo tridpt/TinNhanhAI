@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from typing import Any
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup, Tag
@@ -137,8 +138,23 @@ def fetch_article(url: str) -> dict[str, Any]:
         return cached
 
     try:
-        response = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
-        response.raise_for_status()
+        current_url = url
+        max_redirects = 5
+        response = None
+        for hop in range(max_redirects + 1):
+            if not is_safe_public_url(current_url):
+                return {"url": url, "title": "", "paragraphs": [], "word_count": 0, "error": "blocked_url"}
+            response = requests.get(current_url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=False)
+            if getattr(response, "is_redirect", False) or getattr(response, "status_code", 200) in (301, 302, 303, 307, 308):
+                if hop >= max_redirects:
+                    return {"url": url, "title": "", "paragraphs": [], "word_count": 0, "error": "too_many_redirects"}
+                location = (getattr(response, "headers", None) or {}).get("Location") or (getattr(response, "headers", None) or {}).get("location")
+                if not location:
+                    return {"url": url, "title": "", "paragraphs": [], "word_count": 0, "error": "invalid_redirect"}
+                current_url = urljoin(current_url, location)
+                continue
+            response.raise_for_status()
+            break
     except Exception as exc:
         return {"url": url, "title": "", "paragraphs": [], "word_count": 0, "error": str(exc)}
 

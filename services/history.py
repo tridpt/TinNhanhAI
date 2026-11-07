@@ -23,7 +23,9 @@ import time
 from pathlib import Path
 from typing import Any
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "history.db"
+from config import DATA_DIR
+
+DB_PATH = DATA_DIR / "history.db"
 
 _LOCK = threading.Lock()
 _MIN_INTERVAL_SECONDS = 240

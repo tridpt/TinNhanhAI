@@ -23,6 +23,7 @@ Price cards share the same shape as the international price cards in
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -181,7 +182,8 @@ def fetch_btmc() -> list[dict[str, Any]]:
     dashboard stays compact.
     """
 
-    url = "http://api.btmc.vn/api/BTMCAPI/getpricebtmc?key=3kd8h1yec9jvf96vh9hd"
+    btmc_key = os.getenv("BTMC_API_KEY", "3kd8h1yec9jvf96vh9hd")
+    url = f"http://api.btmc.vn/api/BTMCAPI/getpricebtmc?key={btmc_key}"
     try:
         response = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
         response.raise_for_status()
